@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<kcfg xmlns="http://www.kde.org/standards/kcfg/1.0"
+      xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+      xsi:schemaLocation="http://www.kde.org/standards/kcfg/1.0
+      http://www.kde.org/standards/kcfg/1.0/kcfg.xsd">
+  <kcfgfile name=""/>
+
+  <group name="General">
+    <entry name="icon" type="String">
+      <label>The name of the icon to use for the compact representation.</label>
+      <default>start-here-kde-symbolic</default>
+    </entry>
+    <entry name="useCustomButtonImage" type="Bool">
+      <label>Whether to use a custom image instead of an icon.</label>
+      <default>false</default>
+    </entry>
+    <entry name="customButtonImage" type="Url">
+      <label>The URL of the custom image for the panel button.</label>
+      <default></default>
+    </entry>
+
+    <entry name="appNameFormat" type="Int">
+      <label>Application name format: 0=Name, 1=Description, 2=Name (Description), 3=Description (Name)</label>
+      <default>0</default>
+    </entry>
+    <entry name="limitDepth" type="Bool">
+      <label>Flatten top-level menu categories.</label>
+      <default>false</default>
+    </entry>
+    <entry name="alphaSort" type="Bool">
+      <label>Sort menu contents alphabetically.</label>
+      <default>false</default>
+    </entry>
+
+    <entry name="recentOrdering" type="Int">
+      <label>Recent ordering: 0=RecentFirst, 1=PopularFirst</label>
+      <default>0</default>
+    </entry>
+    <entry name="favoriteApps" type="StringList">
+      <label>List of favorite applications.</label>
+      <default>preferred://browser,org.kde.kontact.desktop,systemsettings.desktop,org.kde.dolphin.desktop,org.kde.discover</default>
+    </entry>
+    <entry name="favoriteSystemActions" type="StringList">
+      <label>List of system action favorites.</label>
+      <default>shutdown,reboot,logout,lock-screen</default>
+    </entry>
+    <entry name="favoritesPortedToKAstats" type="Bool">
+      <label>Whether favorites have been ported to KActivitiesStats.</label>
+      <default>false</default>
+    </entry>
+    <entry name="hiddenApplications" type="StringList">
+      <label>List of hidden application menu IDs.</label>
+      <default></default>
+    </entry>
+
+    <entry name="showRecentApps" type="Bool">
+      <label>Show recent applications category.</label>
+      <default>true</default>
+    </entry>
+    <entry name="showRecentDocs" type="Bool">
+      <label>Show recent files category.</label>
+      <default>true</default>
+    </entry>
+
+    <entry name="useExtraRunners" type="Bool">
+      <label>Use additional KRunner plugins for search.</label>
+      <default>true</default>
+    </entry>
+    <entry name="extraRunners" type="StringList">
+      <label>Additional KRunner plugin IDs.</label>
+      <default>krunner_shell,krunner_bookmarksrunner,baloosearch,locations</default>
+    </entry>
+    <entry name="alignResultsToBottom" type="Bool">
+      <label>Align search results to the bottom.</label>
+      <default>true</default>
+    </entry>
+
+    <!-- Icon sizes -->
+    <entry name="appsIconSize" type="Enum">
+      <label>Application icon size.</label>
+      <default>3</default>
+    </entry>
+    <entry name="favsIconSize" type="Enum">
+      <label>Favorites icon size.</label>
+      <default>2</default>
+    </entry>
+    <entry name="systemIconSize" type="Enum">
+      <label>System actions icon size.</label>
+      <default>1</default>
+    </entry>
+
+    <!-- Animation settings -->
+    <entry name="animationDuration" type="Int">
+      <label>Duration of open/close animations in milliseconds.</label>
+      <default>350</default>
+    </entry>
+    <entry name="iconEntranceDuration" type="Int">
+      <label>Duration of icon entrance animations in milliseconds.</label>
+      <default>400</default>
+    </entry>
+    <entry name="hoverEffectDuration" type="Int">
+      <label>Duration of hover/press effect animations in milliseconds.</label>
+      <default>150</default>
+    </entry>
+    <entry name="folderPopupDuration" type="Int">
+      <label>Duration of folder popup animations in milliseconds.</label>
+      <default>250</default>
+    </entry>
+    <entry name="backgroundOpacity" type="Int">
+      <label>Background opacity percentage (0-100).</label>
+      <default>40</default>
+    </entry>
+
+    <entry name="dashboardApps" type="String">
+      <label>JSON array of dashboard app entries [{desktopFile, name, icon}, ...].</label>
+      <default>[]</default>
+    </entry>
+
+    <entry name="defaultCategory" type="Int">
+      <label>Default category to show on launch: -2=Dashboard, -1=All Apps, 0+=rootModel row index.</label>
+      <default>0</default>
+    </entry>
+
+    <entry name="showActiveApps" type="Bool">
+      <label>Whether to show the active/running apps dock.</label>
+      <default>true</default>
+    </entry>
+
+  </group>
+</kcfg>
