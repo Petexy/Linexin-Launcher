@@ -1,6 +1,6 @@
 /*
-    SPDX-FileCopyrightText: 2025 Petexy
-    SPDX-License-Identifier: GPL-2.0-or-later
+    SPDX-FileCopyrightText: 2026 Petexy
+    SPDX-License-Identifier: GPL-3.0-or-later
 */
 
 import QtQuick 2.15
@@ -24,6 +24,7 @@ KCM.SimpleKCM {
 
     property int cfg_defaultCategory: Plasmoid.configuration.defaultCategory
     property bool cfg_showActiveApps: Plasmoid.configuration.showActiveApps
+    property bool cfg_showAllAppsInDashboard: Plasmoid.configuration.showAllAppsInDashboard
 
     property alias cfg_appsIconSize: appsIconSize.currentIndex
     property alias cfg_favsIconSize: favsIconSize.currentIndex
@@ -169,6 +170,14 @@ KCM.SimpleKCM {
         }
 
         CheckBox {
+            id: showAllAppsInDashboard
+            Kirigami.FormData.label: i18n("Dashboard:")
+            text: i18n("Show all applications instead of only pinned")
+            checked: cfg_showAllAppsInDashboard
+            onCheckedChanged: cfg_showAllAppsInDashboard = checked
+        }
+
+        CheckBox {
             id: showActiveApps
             Kirigami.FormData.label: i18n("Active apps dock:")
             text: i18n("Show active apps dock")
@@ -309,6 +318,8 @@ KCM.SimpleKCM {
                 cfg_useCustomButtonImage = false;
                 cfg_customButtonImage = "";
                 cfg_defaultCategory = 0;
+                cfg_showAllAppsInDashboard = false;
+                showAllAppsInDashboard.checked = false;
                 cfg_showActiveApps = true;
                 showActiveApps.checked = true;
                 appsIconSize.currentIndex = 3;

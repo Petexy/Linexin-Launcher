@@ -1,7 +1,7 @@
 /*
     SPDX-FileCopyrightText: 2013 Aurélien Gâteau <agateau@kde.org>
     SPDX-FileCopyrightText: 2014-2015 Eike Hein <hein@kde.org>
-    SPDX-License-Identifier: GPL-2.0-or-later
+    SPDX-License-Identifier: GPL-3.0-or-later
 */
 
 import QtQuick 2.15

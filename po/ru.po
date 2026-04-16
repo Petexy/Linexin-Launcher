@@ -1,0 +1,194 @@
+# Russian translation for Linexin Launcher
+# Copyright (C) 2026 Petexy
+# This file is distributed under the same license as the Linexin Launcher package.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: linexin-launcher 1.0.0\n"
+"Report-Msgid-Bugs-To: https://github.com/petexy/kinexin-launcher/issues\n"
+"POT-Creation-Date: 2025-01-01 00:00+0000\n"
+"PO-Revision-Date: 2025-01-01 00:00+0000\n"
+"Last-Translator: \n"
+"Language-Team: Russian\n"
+"Language: ru\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && (n%100<12 || n%100>14) ? 1 : 2);\n"
+
+msgid "Edit Applications…"
+msgstr "Редактировать приложения…"
+
+msgid "Panel icon:"
+msgstr "Значок панели:"
+
+msgctxt "@item:inmenu Open icon chooser dialog"
+msgid "Choose…"
+msgstr "Выбрать…"
+
+msgctxt "@item:inmenu Reset icon to default"
+msgid "Clear Icon"
+msgstr "Сбросить значок"
+
+msgid "Starting category:"
+msgstr "Начальная категория:"
+
+msgid "Dashboard"
+msgstr "Панель"
+
+msgid "All Apps"
+msgstr "Все приложения"
+
+msgid "Recent Apps"
+msgstr "Недавние"
+
+msgid "Apps icon size:"
+msgstr "Размер значков приложений:"
+
+msgid "Small"
+msgstr "Маленький"
+
+msgid "Medium"
+msgstr "Средний"
+
+msgid "Large"
+msgstr "Большой"
+
+msgid "Huge"
+msgstr "Огромный"
+
+msgid "Very Large"
+msgstr "Очень большой"
+
+msgid "Enormous"
+msgstr "Гигантский"
+
+msgid "Dashboard:"
+msgstr "Панель:"
+
+msgid "Show all applications instead of only pinned"
+msgstr "Показывать все приложения вместо только закреплённых"
+
+msgid "Active apps dock:"
+msgstr "Док активных приложений:"
+
+msgid "Show active apps dock"
+msgstr "Показывать док активных приложений"
+
+msgid "Active apps icon size:"
+msgstr "Размер значков активных приложений:"
+
+msgid "System actions icon size:"
+msgstr "Размер значков системных действий:"
+
+msgid "Open/Close:"
+msgstr "Открытие/Закрытие:"
+
+msgid "Off"
+msgstr "Выкл."
+
+msgid "Icon entrance:"
+msgstr "Появление значков:"
+
+msgid "Hover effects:"
+msgstr "Эффекты наведения:"
+
+msgid "Folder popup:"
+msgstr "Всплывающее окно папки:"
+
+msgid "Background opacity:"
+msgstr "Прозрачность фона:"
+
+msgid "Search:"
+msgstr "Поиск:"
+
+msgid "Expand search to bookmarks, files, and emails"
+msgstr "Расширить поиск на закладки, файлы и письма"
+
+msgid "Restore Defaults"
+msgstr "Восстановить по умолчанию"
+
+msgid "Remove from Dashboard"
+msgstr "Удалить с панели"
+
+msgid "Add to Dashboard"
+msgstr "Добавить на панель"
+
+msgid "Remove from Favorites"
+msgstr "Удалить из избранного"
+
+msgid "Add to Favorites"
+msgstr "Добавить в избранное"
+
+msgid "Unpin from Task Manager"
+msgstr "Открепить от панели задач"
+
+msgid "Pin to Task Manager"
+msgstr "Закрепить на панели задач"
+
+msgid "Open New Instance"
+msgstr "Открыть новый экземпляр"
+
+msgid "Restore"
+msgstr "Восстановить"
+
+msgid "Minimize"
+msgstr "Свернуть"
+
+msgid "Maximize"
+msgstr "Развернуть"
+
+msgid "Keep Above Others"
+msgstr "Поверх остальных"
+
+msgid "Keep Below Others"
+msgstr "Позади остальных"
+
+msgid "Fullscreen"
+msgstr "Во весь экран"
+
+msgid "Close"
+msgstr "Закрыть"
+
+msgid "New Folder"
+msgstr "Новая папка"
+
+msgid "Pin to Dashboard"
+msgstr "Закрепить на панели"
+
+msgid "Ungroup Folder"
+msgstr "Расформировать папку"
+
+msgid "Rename Folder"
+msgstr "Переименовать папку"
+
+msgctxt "@info:placeholder"
+msgid "Search applications…"
+msgstr "Поиск приложений…"
+
+msgid "Alphabetically"
+msgstr "По алфавиту"
+
+msgid "All Letters"
+msgstr "Все буквы"
+
+msgid "Folder"
+msgstr "Папка"
+
+msgid "Right-click an app and choose \"Add to Dashboard\""
+msgstr "Щёлкните правой кнопкой мыши по приложению и выберите «Добавить на панель»"
+
+msgid "Remove from Folder"
+msgstr "Удалить из папки"
+
+msgid "On All Activities"
+msgstr "На всех комнатах"
+
+msgid "On the Current Activity"
+msgstr "На текущей комнате"
+
+msgid "Show in Favorites"
+msgstr "Показать в избранном"
+
+msgid "Uninstall or Manage Add-Ons…"
+msgstr "Удалить или управлять дополнениями…"

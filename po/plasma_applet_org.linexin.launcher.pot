@@ -1,0 +1,256 @@
+# Translation template for Linexin Launcher
+# Copyright (C) 2026 Petexy
+# This file is distributed under the same license as the Linexin Launcher package.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: linexin-launcher 1.0.0\n"
+"Report-Msgid-Bugs-To: https://github.com/petexy/kinexin-launcher/issues\n"
+"POT-Creation-Date: 2026-04-16 00:00+0000\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#: package/contents/ui/main.qml
+msgid "Edit Applications…"
+msgstr ""
+
+#: package/contents/ui/ConfigGeneral.qml
+msgid "Panel icon:"
+msgstr ""
+
+#: package/contents/ui/ConfigGeneral.qml
+msgctxt "@item:inmenu Open icon chooser dialog"
+msgid "Choose…"
+msgstr ""
+
+#: package/contents/ui/ConfigGeneral.qml
+msgctxt "@item:inmenu Reset icon to default"
+msgid "Clear Icon"
+msgstr ""
+
+#: package/contents/ui/ConfigGeneral.qml
+msgid "Starting category:"
+msgstr ""
+
+#: package/contents/ui/ConfigGeneral.qml
+#: package/contents/ui/DashboardRepresentation.qml
+msgid "Dashboard"
+msgstr ""
+
+#: package/contents/ui/ConfigGeneral.qml
+#: package/contents/ui/DashboardRepresentation.qml
+msgid "All Apps"
+msgstr ""
+
+#: package/contents/ui/ConfigGeneral.qml
+msgid "Recent Apps"
+msgstr ""
+
+#: package/contents/ui/ConfigGeneral.qml
+msgid "Apps icon size:"
+msgstr ""
+
+#: package/contents/ui/ConfigGeneral.qml
+msgid "Small"
+msgstr ""
+
+#: package/contents/ui/ConfigGeneral.qml
+msgid "Medium"
+msgstr ""
+
+#: package/contents/ui/ConfigGeneral.qml
+msgid "Large"
+msgstr ""
+
+#: package/contents/ui/ConfigGeneral.qml
+msgid "Huge"
+msgstr ""
+
+#: package/contents/ui/ConfigGeneral.qml
+msgid "Very Large"
+msgstr ""
+
+#: package/contents/ui/ConfigGeneral.qml
+msgid "Enormous"
+msgstr ""
+
+#: package/contents/ui/ConfigGeneral.qml
+msgid "Dashboard:"
+msgstr ""
+
+#: package/contents/ui/ConfigGeneral.qml
+msgid "Show all applications instead of only pinned"
+msgstr ""
+
+#: package/contents/ui/ConfigGeneral.qml
+msgid "Active apps dock:"
+msgstr ""
+
+#: package/contents/ui/ConfigGeneral.qml
+msgid "Show active apps dock"
+msgstr ""
+
+#: package/contents/ui/ConfigGeneral.qml
+msgid "Active apps icon size:"
+msgstr ""
+
+#: package/contents/ui/ConfigGeneral.qml
+msgid "System actions icon size:"
+msgstr ""
+
+#: package/contents/ui/ConfigGeneral.qml
+msgid "Open/Close:"
+msgstr ""
+
+#: package/contents/ui/ConfigGeneral.qml
+msgid "Off"
+msgstr ""
+
+#: package/contents/ui/ConfigGeneral.qml
+msgid "Icon entrance:"
+msgstr ""
+
+#: package/contents/ui/ConfigGeneral.qml
+msgid "Hover effects:"
+msgstr ""
+
+#: package/contents/ui/ConfigGeneral.qml
+msgid "Folder popup:"
+msgstr ""
+
+#: package/contents/ui/ConfigGeneral.qml
+msgid "Background opacity:"
+msgstr ""
+
+#: package/contents/ui/ConfigGeneral.qml
+msgid "Search:"
+msgstr ""
+
+#: package/contents/ui/ConfigGeneral.qml
+msgid "Expand search to bookmarks, files, and emails"
+msgstr ""
+
+#: package/contents/ui/ConfigGeneral.qml
+msgid "Restore Defaults"
+msgstr ""
+
+#: package/contents/ui/DashboardRepresentation.qml
+msgid "Remove from Dashboard"
+msgstr ""
+
+#: package/contents/ui/DashboardRepresentation.qml
+msgid "Add to Dashboard"
+msgstr ""
+
+#: package/contents/ui/DashboardRepresentation.qml
+#: package/contents/ui/code/tools.js
+msgid "Remove from Favorites"
+msgstr ""
+
+#: package/contents/ui/DashboardRepresentation.qml
+#: package/contents/ui/code/tools.js
+msgid "Add to Favorites"
+msgstr ""
+
+#: package/contents/ui/DashboardRepresentation.qml
+msgid "Unpin from Task Manager"
+msgstr ""
+
+#: package/contents/ui/DashboardRepresentation.qml
+msgid "Pin to Task Manager"
+msgstr ""
+
+#: package/contents/ui/DashboardRepresentation.qml
+msgid "Open New Instance"
+msgstr ""
+
+#: package/contents/ui/DashboardRepresentation.qml
+msgid "Restore"
+msgstr ""
+
+#: package/contents/ui/DashboardRepresentation.qml
+msgid "Minimize"
+msgstr ""
+
+#: package/contents/ui/DashboardRepresentation.qml
+msgid "Maximize"
+msgstr ""
+
+#: package/contents/ui/DashboardRepresentation.qml
+msgid "Keep Above Others"
+msgstr ""
+
+#: package/contents/ui/DashboardRepresentation.qml
+msgid "Keep Below Others"
+msgstr ""
+
+#: package/contents/ui/DashboardRepresentation.qml
+msgid "Fullscreen"
+msgstr ""
+
+#: package/contents/ui/DashboardRepresentation.qml
+msgid "Close"
+msgstr ""
+
+#: package/contents/ui/DashboardRepresentation.qml
+msgid "New Folder"
+msgstr ""
+
+#: package/contents/ui/DashboardRepresentation.qml
+msgid "Pin to Dashboard"
+msgstr ""
+
+#: package/contents/ui/DashboardRepresentation.qml
+msgid "Ungroup Folder"
+msgstr ""
+
+#: package/contents/ui/DashboardRepresentation.qml
+msgid "Rename Folder"
+msgstr ""
+
+#: package/contents/ui/DashboardRepresentation.qml
+msgctxt "@info:placeholder"
+msgid "Search applications…"
+msgstr ""
+
+#: package/contents/ui/DashboardRepresentation.qml
+msgid "Alphabetically"
+msgstr ""
+
+#: package/contents/ui/DashboardRepresentation.qml
+msgid "All Letters"
+msgstr ""
+
+#: package/contents/ui/DashboardRepresentation.qml
+msgid "Folder"
+msgstr ""
+
+#: package/contents/ui/DashboardRepresentation.qml
+msgid "Right-click an app and choose \"Add to Dashboard\""
+msgstr ""
+
+#: package/contents/ui/DashboardRepresentation.qml
+msgid "Remove from Folder"
+msgstr ""
+
+#: package/contents/ui/code/tools.js
+msgid "On All Activities"
+msgstr ""
+
+#: package/contents/ui/code/tools.js
+msgid "On the Current Activity"
+msgstr ""
+
+#: package/contents/ui/code/tools.js
+msgid "Show in Favorites"
+msgstr ""
+
+#: package/contents/ui/DashboardRepresentation.qml
+msgid "Uninstall or Manage Add-Ons…"
+msgstr ""

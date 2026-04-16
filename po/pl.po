@@ -1,0 +1,194 @@
+# Polish translation for Linexin Launcher
+# Copyright (C) 2026 Petexy
+# This file is distributed under the same license as the Linexin Launcher package.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: linexin-launcher 1.0.0\n"
+"Report-Msgid-Bugs-To: https://github.com/petexy/kinexin-launcher/issues\n"
+"POT-Creation-Date: 2025-01-01 00:00+0000\n"
+"PO-Revision-Date: 2025-01-01 00:00+0000\n"
+"Last-Translator: \n"
+"Language-Team: Polish\n"
+"Language: pl\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=3; plural=(n==1 ? 0 : n%10>=2 && n%10<=4 && (n%100<12 || n%100>14) ? 1 : 2);\n"
+
+msgid "Edit Applications…"
+msgstr "Edytuj aplikacje…"
+
+msgid "Panel icon:"
+msgstr "Ikona panelu:"
+
+msgctxt "@item:inmenu Open icon chooser dialog"
+msgid "Choose…"
+msgstr "Wybierz…"
+
+msgctxt "@item:inmenu Reset icon to default"
+msgid "Clear Icon"
+msgstr "Wyczyść ikonę"
+
+msgid "Starting category:"
+msgstr "Kategoria początkowa:"
+
+msgid "Dashboard"
+msgstr "Pulpit"
+
+msgid "All Apps"
+msgstr "Wszystkie aplikacje"
+
+msgid "Recent Apps"
+msgstr "Ostatnio używane"
+
+msgid "Apps icon size:"
+msgstr "Rozmiar ikon aplikacji:"
+
+msgid "Small"
+msgstr "Mały"
+
+msgid "Medium"
+msgstr "Średni"
+
+msgid "Large"
+msgstr "Duży"
+
+msgid "Huge"
+msgstr "Ogromny"
+
+msgid "Very Large"
+msgstr "Bardzo duży"
+
+msgid "Enormous"
+msgstr "Olbrzymi"
+
+msgid "Dashboard:"
+msgstr "Pulpit:"
+
+msgid "Show all applications instead of only pinned"
+msgstr "Pokaż wszystkie aplikacje zamiast tylko przypiętych"
+
+msgid "Active apps dock:"
+msgstr "Dok aktywnych aplikacji:"
+
+msgid "Show active apps dock"
+msgstr "Pokaż dok aktywnych aplikacji"
+
+msgid "Active apps icon size:"
+msgstr "Rozmiar ikon aktywnych aplikacji:"
+
+msgid "System actions icon size:"
+msgstr "Rozmiar ikon akcji systemowych:"
+
+msgid "Open/Close:"
+msgstr "Otwieranie/Zamykanie:"
+
+msgid "Off"
+msgstr "Wył."
+
+msgid "Icon entrance:"
+msgstr "Wchodzenie ikon:"
+
+msgid "Hover effects:"
+msgstr "Efekty najechania:"
+
+msgid "Folder popup:"
+msgstr "Okienko folderu:"
+
+msgid "Background opacity:"
+msgstr "Przezroczystość tła:"
+
+msgid "Search:"
+msgstr "Wyszukiwanie:"
+
+msgid "Expand search to bookmarks, files, and emails"
+msgstr "Rozszerz wyszukiwanie na zakładki, pliki i e-maile"
+
+msgid "Restore Defaults"
+msgstr "Przywróć domyślne"
+
+msgid "Remove from Dashboard"
+msgstr "Usuń z pulpitu"
+
+msgid "Add to Dashboard"
+msgstr "Dodaj do pulpitu"
+
+msgid "Remove from Favorites"
+msgstr "Usuń z ulubionych"
+
+msgid "Add to Favorites"
+msgstr "Dodaj do ulubionych"
+
+msgid "Unpin from Task Manager"
+msgstr "Odepnij z paska zadań"
+
+msgid "Pin to Task Manager"
+msgstr "Przypnij do paska zadań"
+
+msgid "Open New Instance"
+msgstr "Otwórz nowe okno"
+
+msgid "Restore"
+msgstr "Przywróć"
+
+msgid "Minimize"
+msgstr "Minimalizuj"
+
+msgid "Maximize"
+msgstr "Maksymalizuj"
+
+msgid "Keep Above Others"
+msgstr "Utrzymaj nad innymi"
+
+msgid "Keep Below Others"
+msgstr "Utrzymaj pod innymi"
+
+msgid "Fullscreen"
+msgstr "Pełny ekran"
+
+msgid "Close"
+msgstr "Zamknij"
+
+msgid "New Folder"
+msgstr "Nowy folder"
+
+msgid "Pin to Dashboard"
+msgstr "Przypnij do pulpitu"
+
+msgid "Ungroup Folder"
+msgstr "Rozgrupuj folder"
+
+msgid "Rename Folder"
+msgstr "Zmień nazwę folderu"
+
+msgctxt "@info:placeholder"
+msgid "Search applications…"
+msgstr "Szukaj aplikacji…"
+
+msgid "Alphabetically"
+msgstr "Alfabetycznie"
+
+msgid "All Letters"
+msgstr "Wszystkie litery"
+
+msgid "Folder"
+msgstr "Folder"
+
+msgid "Right-click an app and choose \"Add to Dashboard\""
+msgstr "Kliknij prawym przyciskiem na aplikację i wybierz \"Dodaj do pulpitu\""
+
+msgid "Remove from Folder"
+msgstr "Usuń z folderu"
+
+msgid "On All Activities"
+msgstr "Na wszystkich aktywnościach"
+
+msgid "On the Current Activity"
+msgstr "Na bieżącej aktywności"
+
+msgid "Show in Favorites"
+msgstr "Pokaż w ulubionych"
+
+msgid "Uninstall or Manage Add-Ons…"
+msgstr "Odinstaluj lub zarządzaj dodatkami…"

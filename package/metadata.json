@@ -3,24 +3,25 @@
     "KPlugin": {
         "Authors": [
             {
-                "Email": "petexy@linexin.org",
-                "Name": "Petexy"
+                "Email": "piotr.petexiness@gmail.com",
+                "Name": "Linexy"
             }
         ],
         "Category": "Application Launchers",
-        "Description": "A macOS Launchpad-inspired fullscreen application launcher with butter-smooth animations",
+        "Description": "A fullscreen Linexin Launcher for Plasma Desktop.",
         "FormFactors": [
             "desktop"
         ],
         "Icon": "start-here-kde",
         "Id": "org.linexin.launcher",
-        "License": "GPL-2.0+",
+        "License": "GPL-3.0+",
         "Name": "Linexin Launcher",
         "Version": "1.0.0",
-        "Website": "https://github.com/petexy/LinexinLauncherPlasma"
+        "Website": "https://github.com/petexy/kinexin-launcher"
     },
     "X-Plasma-API-Minimum-Version": "6.0",
     "X-Plasma-Provides": [
         "org.kde.plasma.launchermenu"
-    ]
+    ],
+    "X-KDE-Translations-Domain": "plasma_applet_org.linexin.launcher"
 }

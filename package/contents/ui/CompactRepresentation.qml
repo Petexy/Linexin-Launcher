@@ -1,6 +1,6 @@
 /*
-    SPDX-FileCopyrightText: 2025 Petexy
-    SPDX-License-Identifier: GPL-2.0-or-later
+    SPDX-FileCopyrightText: 2026 Petexy
+    SPDX-License-Identifier: GPL-3.0-or-later
 */
 
 import QtQuick 2.15
@@ -60,8 +60,17 @@ Item {
                 root.Layout.maximumHeight = Kirigami.Units.iconSizes.huge;
             }
         } else {
-            root.Layout.minimumWidth = Kirigami.Units.iconSizes.huge;
-            root.Layout.minimumHeight = Kirigami.Units.iconSizes.huge;
+            if (vertical) {
+                root.Layout.minimumWidth = -1;
+                root.Layout.minimumHeight = parent.width;
+                root.Layout.maximumWidth = -1;
+                root.Layout.maximumHeight = parent.width;
+            } else {
+                root.Layout.minimumWidth = parent.height;
+                root.Layout.minimumHeight = -1;
+                root.Layout.maximumWidth = parent.height;
+                root.Layout.maximumHeight = -1;
+            }
         }
     }
 

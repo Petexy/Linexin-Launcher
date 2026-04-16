@@ -126,5 +126,10 @@
       <default>true</default>
     </entry>
 
+    <entry name="showAllAppsInDashboard" type="Bool">
+      <label>Whether to show all applications in the dashboard instead of only pinned ones.</label>
+      <default>false</default>
+    </entry>
+
   </group>
 </kcfg>

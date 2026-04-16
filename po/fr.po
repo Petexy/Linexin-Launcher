@@ -1,0 +1,194 @@
+# French translation for Linexin Launcher
+# Copyright (C) 2026 Petexy
+# This file is distributed under the same license as the Linexin Launcher package.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: linexin-launcher 1.0.0\n"
+"Report-Msgid-Bugs-To: https://github.com/petexy/kinexin-launcher/issues\n"
+"POT-Creation-Date: 2025-01-01 00:00+0000\n"
+"PO-Revision-Date: 2025-01-01 00:00+0000\n"
+"Last-Translator: \n"
+"Language-Team: French\n"
+"Language: fr\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+
+msgid "Edit Applications…"
+msgstr "Modifier les applications…"
+
+msgid "Panel icon:"
+msgstr "Icône du panneau :"
+
+msgctxt "@item:inmenu Open icon chooser dialog"
+msgid "Choose…"
+msgstr "Choisir…"
+
+msgctxt "@item:inmenu Reset icon to default"
+msgid "Clear Icon"
+msgstr "Effacer l'icône"
+
+msgid "Starting category:"
+msgstr "Catégorie de démarrage :"
+
+msgid "Dashboard"
+msgstr "Tableau de bord"
+
+msgid "All Apps"
+msgstr "Toutes les applications"
+
+msgid "Recent Apps"
+msgstr "Applications récentes"
+
+msgid "Apps icon size:"
+msgstr "Taille des icônes d'applications :"
+
+msgid "Small"
+msgstr "Petit"
+
+msgid "Medium"
+msgstr "Moyen"
+
+msgid "Large"
+msgstr "Grand"
+
+msgid "Huge"
+msgstr "Très grand"
+
+msgid "Very Large"
+msgstr "Extra grand"
+
+msgid "Enormous"
+msgstr "Énorme"
+
+msgid "Dashboard:"
+msgstr "Tableau de bord :"
+
+msgid "Show all applications instead of only pinned"
+msgstr "Afficher toutes les applications au lieu des épinglées uniquement"
+
+msgid "Active apps dock:"
+msgstr "Barre d'applications actives :"
+
+msgid "Show active apps dock"
+msgstr "Afficher la barre d'applications actives"
+
+msgid "Active apps icon size:"
+msgstr "Taille des icônes d'applications actives :"
+
+msgid "System actions icon size:"
+msgstr "Taille des icônes d'actions système :"
+
+msgid "Open/Close:"
+msgstr "Ouvrir/Fermer :"
+
+msgid "Off"
+msgstr "Désactivé"
+
+msgid "Icon entrance:"
+msgstr "Apparition des icônes :"
+
+msgid "Hover effects:"
+msgstr "Effets de survol :"
+
+msgid "Folder popup:"
+msgstr "Fenêtre de dossier :"
+
+msgid "Background opacity:"
+msgstr "Opacité de l'arrière-plan :"
+
+msgid "Search:"
+msgstr "Recherche :"
+
+msgid "Expand search to bookmarks, files, and emails"
+msgstr "Étendre la recherche aux favoris, fichiers et e-mails"
+
+msgid "Restore Defaults"
+msgstr "Restaurer les valeurs par défaut"
+
+msgid "Remove from Dashboard"
+msgstr "Retirer du tableau de bord"
+
+msgid "Add to Dashboard"
+msgstr "Ajouter au tableau de bord"
+
+msgid "Remove from Favorites"
+msgstr "Retirer des favoris"
+
+msgid "Add to Favorites"
+msgstr "Ajouter aux favoris"
+
+msgid "Unpin from Task Manager"
+msgstr "Détacher du gestionnaire des tâches"
+
+msgid "Pin to Task Manager"
+msgstr "Épingler au gestionnaire des tâches"
+
+msgid "Open New Instance"
+msgstr "Ouvrir une nouvelle instance"
+
+msgid "Restore"
+msgstr "Restaurer"
+
+msgid "Minimize"
+msgstr "Réduire"
+
+msgid "Maximize"
+msgstr "Agrandir"
+
+msgid "Keep Above Others"
+msgstr "Garder au-dessus des autres"
+
+msgid "Keep Below Others"
+msgstr "Garder en dessous des autres"
+
+msgid "Fullscreen"
+msgstr "Plein écran"
+
+msgid "Close"
+msgstr "Fermer"
+
+msgid "New Folder"
+msgstr "Nouveau dossier"
+
+msgid "Pin to Dashboard"
+msgstr "Épingler au tableau de bord"
+
+msgid "Ungroup Folder"
+msgstr "Dissoudre le dossier"
+
+msgid "Rename Folder"
+msgstr "Renommer le dossier"
+
+msgctxt "@info:placeholder"
+msgid "Search applications…"
+msgstr "Rechercher des applications…"
+
+msgid "Alphabetically"
+msgstr "Alphabétiquement"
+
+msgid "All Letters"
+msgstr "Toutes les lettres"
+
+msgid "Folder"
+msgstr "Dossier"
+
+msgid "Right-click an app and choose \"Add to Dashboard\""
+msgstr "Faites un clic droit sur une application et choisissez « Ajouter au tableau de bord »"
+
+msgid "Remove from Folder"
+msgstr "Retirer du dossier"
+
+msgid "On All Activities"
+msgstr "Sur toutes les activités"
+
+msgid "On the Current Activity"
+msgstr "Sur l'activité en cours"
+
+msgid "Show in Favorites"
+msgstr "Afficher dans les favoris"
+
+msgid "Uninstall or Manage Add-Ons…"
+msgstr "Désinstaller ou gérer les extensions…"

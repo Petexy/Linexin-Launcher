@@ -1,8 +1,8 @@
 /*
-    SPDX-FileCopyrightText: 2025 Petexy
-    SPDX-License-Identifier: GPL-2.0-or-later
+    SPDX-FileCopyrightText: 2026 Petexy
+    SPDX-License-Identifier: GPL-3.0-or-later
 
-    Linexin Launcher — macOS Launchpad-inspired fullscreen launcher for KDE Plasma 6
+    Linexin Launcher — fullscreen launcher for KDE Plasma 6
 */
 
 import QtQuick 2.15

@@ -1,0 +1,194 @@
+# Spanish translation for Linexin Launcher
+# Copyright (C) 2026 Petexy
+# This file is distributed under the same license as the Linexin Launcher package.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: linexin-launcher 1.0.0\n"
+"Report-Msgid-Bugs-To: https://github.com/petexy/kinexin-launcher/issues\n"
+"POT-Creation-Date: 2025-01-01 00:00+0000\n"
+"PO-Revision-Date: 2025-01-01 00:00+0000\n"
+"Last-Translator: \n"
+"Language-Team: Spanish\n"
+"Language: es\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+msgid "Edit Applications…"
+msgstr "Editar aplicaciones…"
+
+msgid "Panel icon:"
+msgstr "Icono del panel:"
+
+msgctxt "@item:inmenu Open icon chooser dialog"
+msgid "Choose…"
+msgstr "Elegir…"
+
+msgctxt "@item:inmenu Reset icon to default"
+msgid "Clear Icon"
+msgstr "Borrar icono"
+
+msgid "Starting category:"
+msgstr "Categoría inicial:"
+
+msgid "Dashboard"
+msgstr "Panel"
+
+msgid "All Apps"
+msgstr "Todas las aplicaciones"
+
+msgid "Recent Apps"
+msgstr "Aplicaciones recientes"
+
+msgid "Apps icon size:"
+msgstr "Tamaño de iconos de aplicaciones:"
+
+msgid "Small"
+msgstr "Pequeño"
+
+msgid "Medium"
+msgstr "Mediano"
+
+msgid "Large"
+msgstr "Grande"
+
+msgid "Huge"
+msgstr "Muy grande"
+
+msgid "Very Large"
+msgstr "Extra grande"
+
+msgid "Enormous"
+msgstr "Enorme"
+
+msgid "Dashboard:"
+msgstr "Panel:"
+
+msgid "Show all applications instead of only pinned"
+msgstr "Mostrar todas las aplicaciones en lugar de solo las fijadas"
+
+msgid "Active apps dock:"
+msgstr "Barra de aplicaciones activas:"
+
+msgid "Show active apps dock"
+msgstr "Mostrar barra de aplicaciones activas"
+
+msgid "Active apps icon size:"
+msgstr "Tamaño de iconos de aplicaciones activas:"
+
+msgid "System actions icon size:"
+msgstr "Tamaño de iconos de acciones del sistema:"
+
+msgid "Open/Close:"
+msgstr "Abrir/Cerrar:"
+
+msgid "Off"
+msgstr "Desactivado"
+
+msgid "Icon entrance:"
+msgstr "Entrada de iconos:"
+
+msgid "Hover effects:"
+msgstr "Efectos de cursor:"
+
+msgid "Folder popup:"
+msgstr "Ventana de carpeta:"
+
+msgid "Background opacity:"
+msgstr "Opacidad del fondo:"
+
+msgid "Search:"
+msgstr "Búsqueda:"
+
+msgid "Expand search to bookmarks, files, and emails"
+msgstr "Ampliar búsqueda a marcadores, archivos y correos"
+
+msgid "Restore Defaults"
+msgstr "Restaurar valores predeterminados"
+
+msgid "Remove from Dashboard"
+msgstr "Quitar del panel"
+
+msgid "Add to Dashboard"
+msgstr "Añadir al panel"
+
+msgid "Remove from Favorites"
+msgstr "Quitar de favoritos"
+
+msgid "Add to Favorites"
+msgstr "Añadir a favoritos"
+
+msgid "Unpin from Task Manager"
+msgstr "Desanclar del gestor de tareas"
+
+msgid "Pin to Task Manager"
+msgstr "Anclar al gestor de tareas"
+
+msgid "Open New Instance"
+msgstr "Abrir nueva instancia"
+
+msgid "Restore"
+msgstr "Restaurar"
+
+msgid "Minimize"
+msgstr "Minimizar"
+
+msgid "Maximize"
+msgstr "Maximizar"
+
+msgid "Keep Above Others"
+msgstr "Mantener sobre otras ventanas"
+
+msgid "Keep Below Others"
+msgstr "Mantener debajo de otras ventanas"
+
+msgid "Fullscreen"
+msgstr "Pantalla completa"
+
+msgid "Close"
+msgstr "Cerrar"
+
+msgid "New Folder"
+msgstr "Nueva carpeta"
+
+msgid "Pin to Dashboard"
+msgstr "Fijar al panel"
+
+msgid "Ungroup Folder"
+msgstr "Desagrupar carpeta"
+
+msgid "Rename Folder"
+msgstr "Renombrar carpeta"
+
+msgctxt "@info:placeholder"
+msgid "Search applications…"
+msgstr "Buscar aplicaciones…"
+
+msgid "Alphabetically"
+msgstr "Alfabéticamente"
+
+msgid "All Letters"
+msgstr "Todas las letras"
+
+msgid "Folder"
+msgstr "Carpeta"
+
+msgid "Right-click an app and choose \"Add to Dashboard\""
+msgstr "Haga clic derecho en una aplicación y elija \"Añadir al panel\""
+
+msgid "Remove from Folder"
+msgstr "Quitar de la carpeta"
+
+msgid "On All Activities"
+msgstr "En todas las actividades"
+
+msgid "On the Current Activity"
+msgstr "En la actividad actual"
+
+msgid "Show in Favorites"
+msgstr "Mostrar en favoritos"
+
+msgid "Uninstall or Manage Add-Ons…"
+msgstr "Desinstalar o gestionar complementos…"

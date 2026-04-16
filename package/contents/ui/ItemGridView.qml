@@ -1,7 +1,7 @@
 /*
-    SPDX-FileCopyrightText: 2025 Petexy
+    SPDX-FileCopyrightText: 2026 Petexy
     Based on Eike Hein's original work
-    SPDX-License-Identifier: GPL-2.0-or-later
+    SPDX-License-Identifier: GPL-3.0-or-later
 
     ItemGridView with staggered entrance animation support
 */
@@ -187,11 +187,26 @@ FocusScope {
             focus: true
             currentIndex: -1
 
-            ScrollBar.vertical: ScrollBar {
-                snapMode: ScrollBar.SnapAlways
-            }
+            // When content fits, disable interactive so wheel events propagate to parent Flickable
+            interactive: contentHeight > height
 
-            snapMode: GridView.SnapOneRow
+            ScrollBar.vertical: ScrollBar {}
+
+            snapMode: GridView.NoSnap
+            flickDeceleration: 1500
+
+            WheelHandler {
+                id: wheelHandler
+                enabled: gridView.contentHeight > gridView.height
+                acceptedDevices: PointerDevice.Mouse | PointerDevice.TouchPad
+                onWheel: event => {
+                    var delta = event.angleDelta.y;
+                    gridView.contentY = Math.max(0,
+                        Math.min(gridView.contentY - delta * 2,
+                                 gridView.contentHeight - gridView.height));
+                    event.accepted = true;
+                }
+            }
 
             move: Transition {
                 enabled: itemGrid.dropEnabled

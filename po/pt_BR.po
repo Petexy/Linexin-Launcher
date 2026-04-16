@@ -1,0 +1,194 @@
+# Brazilian Portuguese translation for Linexin Launcher
+# Copyright (C) 2026 Petexy
+# This file is distributed under the same license as the Linexin Launcher package.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: linexin-launcher 1.0.0\n"
+"Report-Msgid-Bugs-To: https://github.com/petexy/kinexin-launcher/issues\n"
+"POT-Creation-Date: 2025-01-01 00:00+0000\n"
+"PO-Revision-Date: 2025-01-01 00:00+0000\n"
+"Last-Translator: \n"
+"Language-Team: Brazilian Portuguese\n"
+"Language: pt_BR\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n > 1);\n"
+
+msgid "Edit Applications…"
+msgstr "Editar aplicativos…"
+
+msgid "Panel icon:"
+msgstr "Ícone do painel:"
+
+msgctxt "@item:inmenu Open icon chooser dialog"
+msgid "Choose…"
+msgstr "Escolher…"
+
+msgctxt "@item:inmenu Reset icon to default"
+msgid "Clear Icon"
+msgstr "Limpar ícone"
+
+msgid "Starting category:"
+msgstr "Categoria inicial:"
+
+msgid "Dashboard"
+msgstr "Painel"
+
+msgid "All Apps"
+msgstr "Todos os aplicativos"
+
+msgid "Recent Apps"
+msgstr "Aplicativos recentes"
+
+msgid "Apps icon size:"
+msgstr "Tamanho dos ícones de aplicativos:"
+
+msgid "Small"
+msgstr "Pequeno"
+
+msgid "Medium"
+msgstr "Médio"
+
+msgid "Large"
+msgstr "Grande"
+
+msgid "Huge"
+msgstr "Enorme"
+
+msgid "Very Large"
+msgstr "Muito grande"
+
+msgid "Enormous"
+msgstr "Gigante"
+
+msgid "Dashboard:"
+msgstr "Painel:"
+
+msgid "Show all applications instead of only pinned"
+msgstr "Mostrar todos os aplicativos em vez de apenas os fixados"
+
+msgid "Active apps dock:"
+msgstr "Dock de aplicativos ativos:"
+
+msgid "Show active apps dock"
+msgstr "Mostrar dock de aplicativos ativos"
+
+msgid "Active apps icon size:"
+msgstr "Tamanho dos ícones de aplicativos ativos:"
+
+msgid "System actions icon size:"
+msgstr "Tamanho dos ícones de ações do sistema:"
+
+msgid "Open/Close:"
+msgstr "Abrir/Fechar:"
+
+msgid "Off"
+msgstr "Desligado"
+
+msgid "Icon entrance:"
+msgstr "Entrada de ícones:"
+
+msgid "Hover effects:"
+msgstr "Efeitos de foco:"
+
+msgid "Folder popup:"
+msgstr "Janela de pasta:"
+
+msgid "Background opacity:"
+msgstr "Opacidade do fundo:"
+
+msgid "Search:"
+msgstr "Pesquisa:"
+
+msgid "Expand search to bookmarks, files, and emails"
+msgstr "Expandir pesquisa para favoritos, arquivos e e-mails"
+
+msgid "Restore Defaults"
+msgstr "Restaurar padrões"
+
+msgid "Remove from Dashboard"
+msgstr "Remover do painel"
+
+msgid "Add to Dashboard"
+msgstr "Adicionar ao painel"
+
+msgid "Remove from Favorites"
+msgstr "Remover dos favoritos"
+
+msgid "Add to Favorites"
+msgstr "Adicionar aos favoritos"
+
+msgid "Unpin from Task Manager"
+msgstr "Desafixar do gerenciador de tarefas"
+
+msgid "Pin to Task Manager"
+msgstr "Fixar no gerenciador de tarefas"
+
+msgid "Open New Instance"
+msgstr "Abrir nova instância"
+
+msgid "Restore"
+msgstr "Restaurar"
+
+msgid "Minimize"
+msgstr "Minimizar"
+
+msgid "Maximize"
+msgstr "Maximizar"
+
+msgid "Keep Above Others"
+msgstr "Manter acima das outras"
+
+msgid "Keep Below Others"
+msgstr "Manter abaixo das outras"
+
+msgid "Fullscreen"
+msgstr "Tela cheia"
+
+msgid "Close"
+msgstr "Fechar"
+
+msgid "New Folder"
+msgstr "Nova pasta"
+
+msgid "Pin to Dashboard"
+msgstr "Fixar no painel"
+
+msgid "Ungroup Folder"
+msgstr "Desagrupar pasta"
+
+msgid "Rename Folder"
+msgstr "Renomear pasta"
+
+msgctxt "@info:placeholder"
+msgid "Search applications…"
+msgstr "Pesquisar aplicativos…"
+
+msgid "Alphabetically"
+msgstr "Alfabeticamente"
+
+msgid "All Letters"
+msgstr "Todas as letras"
+
+msgid "Folder"
+msgstr "Pasta"
+
+msgid "Right-click an app and choose \"Add to Dashboard\""
+msgstr "Clique com o botão direito em um aplicativo e escolha \"Adicionar ao painel\""
+
+msgid "Remove from Folder"
+msgstr "Remover da pasta"
+
+msgid "On All Activities"
+msgstr "Em todas as atividades"
+
+msgid "On the Current Activity"
+msgstr "Na atividade atual"
+
+msgid "Show in Favorites"
+msgstr "Mostrar nos favoritos"
+
+msgid "Uninstall or Manage Add-Ons…"
+msgstr "Desinstalar ou gerenciar complementos…"

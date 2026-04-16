@@ -1,6 +1,6 @@
 /*
-    SPDX-FileCopyrightText: 2025 Petexy
-    SPDX-License-Identifier: GPL-2.0-or-later
+    SPDX-FileCopyrightText: 2026 Petexy
+    SPDX-License-Identifier: GPL-3.0-or-later
 */
 
 import QtQuick 2.15

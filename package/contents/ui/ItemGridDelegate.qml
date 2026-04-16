@@ -1,7 +1,7 @@
 /*
-    SPDX-FileCopyrightText: 2025 Petexy
+    SPDX-FileCopyrightText: 2026 Petexy
     Based on Eike Hein's original work
-    SPDX-License-Identifier: GPL-2.0-or-later
+    SPDX-License-Identifier: GPL-3.0-or-later
 
     ItemGridDelegate with macOS-style hover scale and staggered entrance animation
 */
@@ -40,14 +40,25 @@ Item {
     // =============================================
 
     // Start invisible if animated entrance is enabled
-    opacity: animatedEntrance ? 0 : 1
-    scale: animatedEntrance ? 0.7 : 1.0
+    opacity: (animatedEntrance && root.iconEntranceDuration > 0) ? 0 : 1
+    scale: (animatedEntrance && root.iconEntranceDuration > 0) ? 0.7 : 1.0
+
+    Component.onCompleted: {
+        if (animatedEntrance && entranceTriggered) {
+            opacity = 1;
+            scale = 1.0;
+        } else if (!animatedEntrance) {
+            opacity = 1;
+            scale = 1.0;
+        }
+    }
 
     onEntranceTriggeredChanged: {
-        if (entranceTriggered && animatedEntrance) {
+        if (!animatedEntrance || root.iconEntranceDuration <= 0) return;
+        if (entranceTriggered) {
             entranceTimer.interval = Math.min(itemIndex * 12, 400);
             entranceTimer.start();
-        } else if (!entranceTriggered && animatedEntrance) {
+        } else {
             // Reset to hidden state so the next entrance animates properly
             entranceAnim.stop();
             entranceTimer.stop();
@@ -81,14 +92,6 @@ Item {
             duration: root.iconEntranceDuration
             easing.type: Easing.OutBack
             easing.overshoot: 1.2
-        }
-    }
-
-    // Reset state when model changes
-    Component.onCompleted: {
-        if (!animatedEntrance) {
-            opacity = 1;
-            scale = 1.0;
         }
     }
 

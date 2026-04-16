@@ -1,0 +1,194 @@
+# Simplified Chinese translation for Linexin Launcher
+# Copyright (C) 2026 Petexy
+# This file is distributed under the same license as the Linexin Launcher package.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: linexin-launcher 1.0.0\n"
+"Report-Msgid-Bugs-To: https://github.com/petexy/kinexin-launcher/issues\n"
+"POT-Creation-Date: 2025-01-01 00:00+0000\n"
+"PO-Revision-Date: 2025-01-01 00:00+0000\n"
+"Last-Translator: \n"
+"Language-Team: Chinese (Simplified)\n"
+"Language: zh_CN\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+
+msgid "Edit Applications…"
+msgstr "编辑应用程序…"
+
+msgid "Panel icon:"
+msgstr "面板图标："
+
+msgctxt "@item:inmenu Open icon chooser dialog"
+msgid "Choose…"
+msgstr "选择…"
+
+msgctxt "@item:inmenu Reset icon to default"
+msgid "Clear Icon"
+msgstr "清除图标"
+
+msgid "Starting category:"
+msgstr "起始分类："
+
+msgid "Dashboard"
+msgstr "仪表盘"
+
+msgid "All Apps"
+msgstr "所有应用"
+
+msgid "Recent Apps"
+msgstr "最近使用"
+
+msgid "Apps icon size:"
+msgstr "应用图标大小："
+
+msgid "Small"
+msgstr "小"
+
+msgid "Medium"
+msgstr "中"
+
+msgid "Large"
+msgstr "大"
+
+msgid "Huge"
+msgstr "超大"
+
+msgid "Very Large"
+msgstr "特大"
+
+msgid "Enormous"
+msgstr "巨大"
+
+msgid "Dashboard:"
+msgstr "仪表盘："
+
+msgid "Show all applications instead of only pinned"
+msgstr "显示所有应用程序而不仅是已固定的"
+
+msgid "Active apps dock:"
+msgstr "活动应用栏："
+
+msgid "Show active apps dock"
+msgstr "显示活动应用栏"
+
+msgid "Active apps icon size:"
+msgstr "活动应用图标大小："
+
+msgid "System actions icon size:"
+msgstr "系统操作图标大小："
+
+msgid "Open/Close:"
+msgstr "打开/关闭："
+
+msgid "Off"
+msgstr "关闭"
+
+msgid "Icon entrance:"
+msgstr "图标入场："
+
+msgid "Hover effects:"
+msgstr "悬停效果："
+
+msgid "Folder popup:"
+msgstr "文件夹弹窗："
+
+msgid "Background opacity:"
+msgstr "背景不透明度："
+
+msgid "Search:"
+msgstr "搜索："
+
+msgid "Expand search to bookmarks, files, and emails"
+msgstr "将搜索扩展到书签、文件和电子邮件"
+
+msgid "Restore Defaults"
+msgstr "恢复默认"
+
+msgid "Remove from Dashboard"
+msgstr "从仪表盘移除"
+
+msgid "Add to Dashboard"
+msgstr "添加到仪表盘"
+
+msgid "Remove from Favorites"
+msgstr "从收藏中移除"
+
+msgid "Add to Favorites"
+msgstr "添加到收藏"
+
+msgid "Unpin from Task Manager"
+msgstr "从任务管理器取消固定"
+
+msgid "Pin to Task Manager"
+msgstr "固定到任务管理器"
+
+msgid "Open New Instance"
+msgstr "打开新实例"
+
+msgid "Restore"
+msgstr "还原"
+
+msgid "Minimize"
+msgstr "最小化"
+
+msgid "Maximize"
+msgstr "最大化"
+
+msgid "Keep Above Others"
+msgstr "置于其他窗口之上"
+
+msgid "Keep Below Others"
+msgstr "置于其他窗口之下"
+
+msgid "Fullscreen"
+msgstr "全屏"
+
+msgid "Close"
+msgstr "关闭"
+
+msgid "New Folder"
+msgstr "新建文件夹"
+
+msgid "Pin to Dashboard"
+msgstr "固定到仪表盘"
+
+msgid "Ungroup Folder"
+msgstr "解散文件夹"
+
+msgid "Rename Folder"
+msgstr "重命名文件夹"
+
+msgctxt "@info:placeholder"
+msgid "Search applications…"
+msgstr "搜索应用程序…"
+
+msgid "Alphabetically"
+msgstr "按字母排序"
+
+msgid "All Letters"
+msgstr "所有字母"
+
+msgid "Folder"
+msgstr "文件夹"
+
+msgid "Right-click an app and choose \"Add to Dashboard\""
+msgstr "右键点击应用程序并选择\"添加到仪表盘\""
+
+msgid "Remove from Folder"
+msgstr "从文件夹移除"
+
+msgid "On All Activities"
+msgstr "在所有活动上"
+
+msgid "On the Current Activity"
+msgstr "在当前活动上"
+
+msgid "Show in Favorites"
+msgstr "在收藏中显示"
+
+msgid "Uninstall or Manage Add-Ons…"
+msgstr "卸载或管理附加组件…"

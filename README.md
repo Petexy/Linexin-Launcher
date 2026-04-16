@@ -1,10 +1,10 @@
 # Linexin Launcher
 
-A macOS Launchpad-inspired fullscreen application launcher for **KDE Plasma 6**, combining the best of macOS Launchpad aesthetics with the full functionality of Plasma's Application Dashboard.
+A fully animated fullscreen plasmoid launcher for **KDE Plasma 6**, combining the best of macOS Launchpad aesthetics with the full functionality of Plasma's Application Dashboard.
 
 ## Features
 
-- **Fullscreen overlay** — Takes over the screen like macOS Launchpad
+- **Fullscreen overlay** — Takes over the screen like macOS Launchpad and GNOME Shell
 - **Butter-smooth animations** — Scale + fade open/close, staggered grid entrance, hover scale effects, press bounce feedback
 - **Application grid** — Browse all installed applications in a paginated grid
 - **Category filtering** — Filter by application categories with animated pill buttons
@@ -23,8 +23,8 @@ A macOS Launchpad-inspired fullscreen application launcher for **KDE Plasma 6**,
 ## Installation
 
 ```bash
-git clone https://github.com/petexy/LinexinLauncherPlasma.git
-cd LinexinLauncherPlasma
+git clone https://github.com/Petexy/Linexin-Launcher
+cd Linexin-Launcher
 ./install.sh
 ```
 
@@ -57,29 +57,6 @@ Right-click the Linexin Launcher icon in your panel → **Configure**:
 | Background opacity | 10–95% (default 40%) |
 | Search scope | Optionally include bookmarks, files, and emails |
 
-## Architecture
-
-```
-package/
-├── metadata.json                 # Plasma widget metadata
-└── contents/
-    ├── config/
-    │   ├── config.qml            # Config tab registration
-    │   └── main.xml              # Configuration schema (defaults)
-    └── ui/
-        ├── main.qml              # Entry point (PlasmoidItem)
-        ├── CompactRepresentation.qml  # Panel button
-        ├── DashboardRepresentation.qml # Fullscreen overlay
-        ├── ItemGridView.qml      # Grid view with animations
-        ├── ItemGridDelegate.qml  # Grid item with hover/entrance fx
-        ├── ItemListView.qml      # List view for sub-menus
-        ├── ItemListDelegate.qml  # List item delegate
-        ├── ActionMenu.qml        # Context menu component
-        ├── ConfigGeneral.qml     # Settings UI
-        └── code/
-            └── tools.js          # Favorites/actions utilities
-```
-
 ## License
 
-GPL-2.0-or-later
+GPL-3.0-or-later
