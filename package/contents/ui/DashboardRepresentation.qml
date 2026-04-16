@@ -1243,8 +1243,8 @@ Kicker.DashboardWindow {
             width: Kirigami.Units.gridUnit * 16
             topPadding: Kirigami.Units.largeSpacing
             bottomPadding: Kirigami.Units.largeSpacing
-            leftPadding: Kirigami.Units.largeSpacing * 2
-            rightPadding: Kirigami.Units.largeSpacing * 2
+            leftPadding: Kirigami.Units.largeSpacing * 2 + Kirigami.Units.iconSizes.small
+            rightPadding: Kirigami.Units.largeSpacing * 2 + (root.searching ? Kirigami.Units.iconSizes.small : 0)
 
             placeholderText: i18nc("@info:placeholder", "Search applications…")
             horizontalAlignment: TextInput.AlignHCenter
@@ -1286,6 +1286,34 @@ Kicker.DashboardWindow {
                 opacity: 0.5
             }
 
+            // Clear / back button
+            Kirigami.Icon {
+                id: clearButton
+                source: "edit-clear"
+                width: Kirigami.Units.iconSizes.small
+                height: width
+                anchors.right: parent.right
+                anchors.rightMargin: Kirigami.Units.largeSpacing
+                anchors.verticalCenter: parent.verticalCenter
+                visible: root.searching
+                opacity: clearMouse.containsMouse ? 1.0 : 0.5
+
+                Behavior on opacity {
+                    NumberAnimation { duration: 150 }
+                }
+
+                MouseArea {
+                    id: clearMouse
+                    anchors.fill: parent
+                    anchors.margins: -Kirigami.Units.smallSpacing
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: {
+                        searchField.clear();
+                    }
+                }
+            }
+
             function appendText(newText) {
                 if (!root.visible) return;
                 focus = true;
@@ -1322,7 +1350,12 @@ Kicker.DashboardWindow {
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.bottom: contentArea.top
             anchors.bottomMargin: Kirigami.Units.largeSpacing * 2
-            visible: !root.searching
+            opacity: root.searching ? 0 : 1
+            enabled: !root.searching
+
+            Behavior on opacity {
+                NumberAnimation { duration: 200; easing.type: Easing.OutCubic }
+            }
 
             // Sum children widths to know the single-line (unclipped) width
             property real singleLineWidth: {
@@ -1995,8 +2028,8 @@ animatedEntrance: true
                 cellWidth: root.cellSize
                 cellHeight: root.cellSize
                 clip: true
-                flow: GridView.FlowTopToBottom
-                flickableDirection: Flickable.HorizontalFlick
+                flow: GridView.FlowLeftToRight
+                flickableDirection: Flickable.VerticalFlick
                 boundsBehavior: Flickable.StopAtBounds
                 snapMode: GridView.NoSnap
                 interactive: false
@@ -2058,10 +2091,10 @@ animatedEntrance: true
                             }
                             if (dashboardGrid._entranceTriggered) {
                                 // Stagger top-to-bottom: row is primary delay, column adds a small offset
-                                // FlowTopToBottom: model index -> row = i%rows, col = floor(i/rows)
+                                // FlowLeftToRight: model index -> row = floor(i/cols), col = i%cols
                                 var ip = dashDelegate.itemIndex % root.itemsPerPage;
-                                var row = ip % root.dashRows;
-                                var col = Math.floor(ip / root.dashRows);
+                                var row = Math.floor(ip / root.columns);
+                                var col = ip % root.columns;
                                 dashEntranceTimer.interval = Math.min(row * 40 + col * 5, 400);
                                 dashEntranceTimer.start();
                             } else {
