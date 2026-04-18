@@ -1,0 +1,257 @@
+# Translation template for Linexin Launcher
+# Copyright (C) 2026 Petexy
+# This file is distributed under the same license as the Linexin Launcher package.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: linexin-launcher 1.0.0\n"
+"Report-Msgid-Bugs-To: https://github.com/petexy/kinexin-launcher/issues\n"
+"POT-Creation-Date: 2026-04-16 00:00+0000\n"
+"PO-Revision-Date: 2026-04-18 11:04+0200\n"
+"Last-Translator: Heimen Stoffels <vistausss@fastmail.com>\n"
+"Language-Team: \n"
+"Language: nl\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Generator: Poedit 3.8\n"
+
+#: package/contents/ui/main.qml
+msgid "Edit Applications…"
+msgstr "Programma's bewerken…"
+
+#: package/contents/ui/ConfigGeneral.qml
+msgid "Panel icon:"
+msgstr "Paneelpictogram:"
+
+#: package/contents/ui/ConfigGeneral.qml
+msgctxt "@item:inmenu Open icon chooser dialog"
+msgid "Choose…"
+msgstr "Kiezen…"
+
+#: package/contents/ui/ConfigGeneral.qml
+msgctxt "@item:inmenu Reset icon to default"
+msgid "Clear Icon"
+msgstr "Pictogram wissen"
+
+#: package/contents/ui/ConfigGeneral.qml
+msgid "Starting category:"
+msgstr "Openen met categorie:"
+
+#: package/contents/ui/ConfigGeneral.qml
+#: package/contents/ui/DashboardRepresentation.qml
+msgid "Dashboard"
+msgstr "Dashboard"
+
+#: package/contents/ui/ConfigGeneral.qml
+#: package/contents/ui/DashboardRepresentation.qml
+msgid "All Apps"
+msgstr "Alle programma's"
+
+#: package/contents/ui/ConfigGeneral.qml
+msgid "Recent Apps"
+msgstr "Onlangs gebruikt"
+
+#: package/contents/ui/ConfigGeneral.qml
+msgid "Apps icon size:"
+msgstr "Pictogramgrootte:"
+
+#: package/contents/ui/ConfigGeneral.qml
+msgid "Small"
+msgstr "Klein"
+
+#: package/contents/ui/ConfigGeneral.qml
+msgid "Medium"
+msgstr "Gemiddeld"
+
+#: package/contents/ui/ConfigGeneral.qml
+msgid "Large"
+msgstr "Groot"
+
+#: package/contents/ui/ConfigGeneral.qml
+msgid "Huge"
+msgstr "Enorm"
+
+#: package/contents/ui/ConfigGeneral.qml
+msgid "Very Large"
+msgstr "Erg groot"
+
+#: package/contents/ui/ConfigGeneral.qml
+msgid "Enormous"
+msgstr "Gigantisch"
+
+#: package/contents/ui/ConfigGeneral.qml
+msgid "Dashboard:"
+msgstr "Dashboard:"
+
+#: package/contents/ui/ConfigGeneral.qml
+msgid "Show all applications instead of only pinned"
+msgstr "Alle programma's tonen in plaats van alleen favorieten"
+
+#: package/contents/ui/ConfigGeneral.qml
+msgid "Active apps dock:"
+msgstr "Dock met geopende programma's:"
+
+#: package/contents/ui/ConfigGeneral.qml
+msgid "Show active apps dock"
+msgstr "Toon een dock met geopende programma's"
+
+#: package/contents/ui/ConfigGeneral.qml
+msgid "Active apps icon size:"
+msgstr "Pictogramgrootte van geopende programma's:"
+
+#: package/contents/ui/ConfigGeneral.qml
+msgid "System actions icon size:"
+msgstr "Pictogramgrootte van systeemacties:"
+
+#: package/contents/ui/ConfigGeneral.qml
+msgid "Open/Close:"
+msgstr "Openen/Sluiten:"
+
+#: package/contents/ui/ConfigGeneral.qml
+msgid "Off"
+msgstr "Uit"
+
+#: package/contents/ui/ConfigGeneral.qml
+msgid "Icon entrance:"
+msgstr "Pictogramopbouw:"
+
+#: package/contents/ui/ConfigGeneral.qml
+msgid "Hover effects:"
+msgstr "Aanwijseffecten:"
+
+#: package/contents/ui/ConfigGeneral.qml
+msgid "Folder popup:"
+msgstr "Mappop-up:"
+
+#: package/contents/ui/ConfigGeneral.qml
+msgid "Background opacity:"
+msgstr "Achtergronddoorzichtigheid:"
+
+#: package/contents/ui/ConfigGeneral.qml
+msgid "Search:"
+msgstr "Zoeken:"
+
+#: package/contents/ui/ConfigGeneral.qml
+msgid "Expand search to bookmarks, files, and emails"
+msgstr "Ook zoeken naar bladwijzers, bestanden en e-mails"
+
+#: package/contents/ui/ConfigGeneral.qml
+msgid "Restore Defaults"
+msgstr "Standaardwaarden herstellen"
+
+#: package/contents/ui/DashboardRepresentation.qml
+msgid "Remove from Dashboard"
+msgstr "Verwijderen van dashboard"
+
+#: package/contents/ui/DashboardRepresentation.qml
+msgid "Add to Dashboard"
+msgstr "Toevoegen aan dashboard"
+
+#: package/contents/ui/DashboardRepresentation.qml
+#: package/contents/ui/code/tools.js
+msgid "Remove from Favorites"
+msgstr "Verwijderen uit favorieten"
+
+#: package/contents/ui/DashboardRepresentation.qml
+#: package/contents/ui/code/tools.js
+msgid "Add to Favorites"
+msgstr "Toevoegen aan favorieten"
+
+#: package/contents/ui/DashboardRepresentation.qml
+msgid "Unpin from Task Manager"
+msgstr "Losmaken van taakbeheer"
+
+#: package/contents/ui/DashboardRepresentation.qml
+msgid "Pin to Task Manager"
+msgstr "Vastmaken aan taakbeheer"
+
+#: package/contents/ui/DashboardRepresentation.qml
+msgid "Open New Instance"
+msgstr "Nieuw venster openen"
+
+#: package/contents/ui/DashboardRepresentation.qml
+msgid "Restore"
+msgstr "Herstellen"
+
+#: package/contents/ui/DashboardRepresentation.qml
+msgid "Minimize"
+msgstr "Minimaliseren"
+
+#: package/contents/ui/DashboardRepresentation.qml
+msgid "Maximize"
+msgstr "Maximaliseren"
+
+#: package/contents/ui/DashboardRepresentation.qml
+msgid "Keep Above Others"
+msgstr "Altijd bovenaan"
+
+#: package/contents/ui/DashboardRepresentation.qml
+msgid "Keep Below Others"
+msgstr "Altijd onderaan"
+
+#: package/contents/ui/DashboardRepresentation.qml
+msgid "Fullscreen"
+msgstr "Schermvullend"
+
+#: package/contents/ui/DashboardRepresentation.qml
+msgid "Close"
+msgstr "Sluiten"
+
+#: package/contents/ui/DashboardRepresentation.qml
+msgid "New Folder"
+msgstr "Nieuwe map"
+
+#: package/contents/ui/DashboardRepresentation.qml
+msgid "Pin to Dashboard"
+msgstr "Vastmaken aan dashboard"
+
+#: package/contents/ui/DashboardRepresentation.qml
+msgid "Ungroup Folder"
+msgstr "Map degroeperen"
+
+#: package/contents/ui/DashboardRepresentation.qml
+msgid "Rename Folder"
+msgstr "Mapnaam wĳzigen"
+
+#: package/contents/ui/DashboardRepresentation.qml
+msgctxt "@info:placeholder"
+msgid "Search applications…"
+msgstr "Zoeken naar programma's…"
+
+#: package/contents/ui/DashboardRepresentation.qml
+msgid "Alphabetically"
+msgstr "Alfabetisch"
+
+#: package/contents/ui/DashboardRepresentation.qml
+msgid "All Letters"
+msgstr "Alle letters"
+
+#: package/contents/ui/DashboardRepresentation.qml
+msgid "Folder"
+msgstr "Map"
+
+#: package/contents/ui/DashboardRepresentation.qml
+msgid "Right-click an app and choose \"Add to Dashboard\""
+msgstr "Rechtsklik op een programma en kies ‘Toevoegen aan dashboard’"
+
+#: package/contents/ui/DashboardRepresentation.qml
+msgid "Remove from Folder"
+msgstr "Verwijderen uit map"
+
+#: package/contents/ui/code/tools.js
+msgid "On All Activities"
+msgstr "Op alle activiteiten"
+
+#: package/contents/ui/code/tools.js
+msgid "On the Current Activity"
+msgstr "Op huidige activiteit"
+
+#: package/contents/ui/code/tools.js
+msgid "Show in Favorites"
+msgstr "Tonen in favorieten"
+
+#: package/contents/ui/DashboardRepresentation.qml
+msgid "Uninstall or Manage Add-Ons…"
+msgstr "Uitbreidingen beheren of verwijderen…"
