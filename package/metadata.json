@@ -16,7 +16,7 @@
         "Id": "org.linexin.launcher",
         "License": "GPL-3.0+",
         "Name": "Linexin Launcher",
-        "Version": "1.0.1",
+        "Version": "1.0.2",
         "Website": "https://github.com/petexy/kinexin-launcher"
     },
     "X-Plasma-API-Minimum-Version": "6.0",

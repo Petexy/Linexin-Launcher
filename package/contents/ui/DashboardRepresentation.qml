@@ -682,6 +682,18 @@ Kicker.DashboardWindow {
             Plasmoid.configuration.dashboardApps = JSON.stringify(rootItem.dashboardApps);
         }
 
+        function launchDesktopFile(desktopFile) {
+            if (!desktopFile) return;
+            var df = String(desktopFile);
+            df = df.replace(/^applications:\/*/i, "");
+            df = df.replace(/^file:\/\//i, "");
+            df = df.replace(/^.*\//, "");
+            var stem = df.replace(/\.desktop$/i, "");
+            if (!stem) return;
+            var quoted = "'" + stem.replace(/'/g, "'\\''") + "'";
+            dashLauncher.connectSource("gtk-launch " + quoted + " #" + Date.now());
+        }
+
         function addToDashboard(desktopFile, name, icon) {
             // Check if already in dashboard (pinned or in folders)
             for (var i = 0; i < dashboardApps.length; i++) {
@@ -2312,7 +2324,7 @@ animatedEntrance: true
                                 if (dashDelegate.isFolder) {
                                     rootItem.openFolderIndex = dashDelegate.itemIndex;
                                 } else {
-                                    dashLauncher.connectSource("kioclient exec " + model.desktopFile + " #" + Date.now());
+                                    rootItem.launchDesktopFile(model.desktopFile);
                                     closeWithAnimation();
                                 }
                             }
@@ -2678,7 +2690,7 @@ animatedEntrance: true
                                     folderGrid.dragFromIndex = -1;
                                     folderGrid.dragToIndex = -1;
                                 } else if (mouse.button === Qt.LeftButton) {
-                                    dashLauncher.connectSource("kioclient exec " + model.desktopFile + " #" + Date.now());
+                                    rootItem.launchDesktopFile(model.desktopFile);
                                     rootItem.openFolderIndex = -1;
                                     closeWithAnimation();
                                 }
