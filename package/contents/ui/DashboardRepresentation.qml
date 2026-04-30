@@ -691,7 +691,7 @@ Kicker.DashboardWindow {
             var stem = df.replace(/\.desktop$/i, "");
             if (!stem) return;
             var quoted = "'" + stem.replace(/'/g, "'\\''") + "'";
-            dashLauncher.connectSource("gtk-launch " + quoted + " #" + Date.now());
+            dashLauncher.connectSource("nohup gtk-launch " + quoted + " >/dev/null 2>&1 &");
         }
 
         function addToDashboard(desktopFile, name, icon) {
