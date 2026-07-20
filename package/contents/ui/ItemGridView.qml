@@ -215,7 +215,7 @@ FocusScope {
                     NumberAnimation {
                         duration: gridView.animationDuration
                         properties: "x, y"
-                        easing.type: Easing.OutQuad
+                        easing.type: Easing.OutCubic
                     }
                     PropertyAction { target: gridView; property: "animating"; value: false }
                 }
@@ -228,7 +228,7 @@ FocusScope {
                     NumberAnimation {
                         duration: gridView.animationDuration
                         properties: "x, y"
-                        easing.type: Easing.OutQuad
+                        easing.type: Easing.OutCubic
                     }
                     PropertyAction { target: gridView; property: "animating"; value: false }
                 }
@@ -247,8 +247,35 @@ FocusScope {
                 color: colorWithAlpha(Kirigami.Theme.highlightColor, 0.5)
                 radius: 12
 
-                Behavior on x { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
-                Behavior on y { NumberAnimation { duration: 150; easing.type: Easing.OutCubic } }
+                // Fade + scale in on first appearance instead of teleporting,
+                // then glide between cells with a slight elastic settle
+                opacity: gridView.currentIndex === -1 ? 0 : 1
+                scale: gridView.currentIndex === -1 ? 0.9 : 1
+
+                Behavior on opacity {
+                    NumberAnimation { duration: root.hoverEffectDuration; easing.type: Easing.OutCubic }
+                }
+                Behavior on scale {
+                    NumberAnimation {
+                        duration: root.hoverEffectDuration * 1.6
+                        easing.type: Easing.OutBack
+                        easing.overshoot: 1.4
+                    }
+                }
+                Behavior on x {
+                    NumberAnimation {
+                        duration: root.hoverEffectDuration * 1.3
+                        easing.type: Easing.OutBack
+                        easing.overshoot: 1.1
+                    }
+                }
+                Behavior on y {
+                    NumberAnimation {
+                        duration: root.hoverEffectDuration * 1.3
+                        easing.type: Easing.OutBack
+                        easing.overshoot: 1.1
+                    }
+                }
             }
 
             highlightFollowsCurrentItem: true

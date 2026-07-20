@@ -227,6 +227,32 @@ msgstr ""
 msgid "All Letters"
 msgstr ""
 
+#: package/contents/ui/RecentView.qml
+msgid "Clear History"
+msgstr ""
+
+#: package/contents/ui/RecentView.qml
+msgid "Click again to confirm"
+msgstr ""
+
+#: package/contents/ui/RecentView.qml
+msgid "Recent Files"
+msgstr ""
+
+#: package/contents/ui/RecentView.qml
+msgid "%1 item"
+msgid_plural "%1 items"
+msgstr[0] ""
+msgstr[1] ""
+
+#: package/contents/ui/RecentView.qml
+msgid "Files you open will show up here"
+msgstr ""
+
+#: package/contents/ui/RecentView.qml
+msgid "Apps you launch will show up here"
+msgstr ""
+
 #: package/contents/ui/DashboardRepresentation.qml
 msgid "Folder"
 msgstr ""

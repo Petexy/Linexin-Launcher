@@ -116,7 +116,8 @@ Item {
         Behavior on scale {
             NumberAnimation {
                 duration: root.hoverEffectDuration
-                easing.type: Easing.OutCubic
+                easing.type: Easing.OutBack
+                easing.overshoot: 1.8
             }
         }
 
@@ -136,14 +137,15 @@ Item {
             animated: false
             source: model.decoration
 
-            // Subtle bounce on press
+            // Squash on press, springy pop back on release
             scale: pressedScale ? 0.88 : 1.0
             property bool pressedScale: false
 
             Behavior on scale {
                 NumberAnimation {
                     duration: root.hoverEffectDuration
-                    easing.type: Easing.OutCubic
+                    easing.type: Easing.OutBack
+                    easing.overshoot: 2.5
                 }
             }
         }

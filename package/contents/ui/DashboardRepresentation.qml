@@ -77,6 +77,19 @@ Kicker.DashboardWindow {
     property int itemsPerPage: columns * dashRows
     property bool searching: searchField.text !== ""
 
+    // -- Recent Apps / Recent Files --
+    // Both are Kicker RecentUsageModels, capped at 15 entries, and RootModel
+    // prepends their groups, so they always occupy the first category rows.
+    // Checking the row index keeps this locale-independent. They render in a
+    // dedicated RecentView instead of the standard category grid.
+    // Deliberately independent of `searching`: RecentView animates its own
+    // exit (shown && !searching), and keeping this true during a search keeps
+    // the StackView's base grid transparent underneath.
+    property int recentRowCount: (rootModel.showRecentApps ? 1 : 0) + (rootModel.showRecentDocs ? 1 : 0)
+    property bool showingRecent: !rootItem.showingDashboard && !rootItem.showingAllApps
+                                 && categoryRow.currentCategory >= 0
+                                 && categoryRow.currentCategory < recentRowCount
+
     // -- Animation properties --
     property int animDuration: Plasmoid.configuration.animationDuration
     property int iconEntranceDuration: Plasmoid.configuration.iconEntranceDuration
@@ -113,6 +126,7 @@ Kicker.DashboardWindow {
             allAppsGrid.resetEntrance();
             dashboardGrid.resetEntrance();
             allAppsView.resetEntrance();
+            recentView.resetEntrance();
             openAnimation.start();
         } else {
             rootItem.opacity = 0;
@@ -131,6 +145,30 @@ Kicker.DashboardWindow {
 
     function colorWithAlpha(color, alpha) {
         return Qt.rgba(color.r, color.g, color.b, alpha);
+    }
+
+    // Routes a category-pill selection to the right view: recent rows go to
+    // the dedicated RecentView, everything else to the standard grid.
+    function selectCategory(row) {
+        rootItem.showingDashboard = false;
+        rootItem.showingAllApps = false;
+        categoryRow.currentCategory = row;
+        if (row < recentRowCount) {
+            recentView.animateEntrance();
+        } else {
+            allAppsGrid.model = rootModel.modelForRow(row);
+            allAppsGrid.currentIndex = -1;
+            allAppsGrid.animateEntrance();
+        }
+    }
+
+    // Wipes the KActivities usage history backing the current recent model.
+    function clearRecentHistory() {
+        var recentModel = recentView.recentModel;
+        if (!recentModel || recentModel.count <= 0 || !("trigger" in recentModel)) {
+            return;
+        }
+        recentModel.trigger(0, "forgetAll", null);
     }
 
     function closeWithAnimation() {
@@ -155,7 +193,9 @@ Kicker.DashboardWindow {
         } else {
             var row = Math.min(defCat, rootModel.count - 1);
             categoryRow.currentCategory = row;
-            allAppsGrid.model = rootModel.modelForRow(row);
+            if (row >= recentRowCount) {
+                allAppsGrid.model = rootModel.modelForRow(row);
+            }
         }
 
         dashboardView.currentPage = 0;
@@ -222,14 +262,25 @@ Kicker.DashboardWindow {
                 duration: root.animDuration * 0.8
                 easing.type: Easing.OutCubic
             }
-            // Content slides up from below
+            // Depth settle: the whole overlay rises from slightly behind the
+            // screen plane and springs into place (shared-Z, like search)
+            NumberAnimation {
+                target: rootItem
+                property: "scale"
+                from: 0.97
+                to: 1
+                duration: root.animDuration * 1.2
+                easing.type: Easing.OutBack
+                easing.overshoot: 1.1
+            }
+            // Content slides up from below with a fast, gliding landing
             NumberAnimation {
                 target: contentArea
                 property: "anchors.verticalCenterOffset"
                 from: Kirigami.Units.gridUnit * 4
                 to: Kirigami.Units.gridUnit * 2
-                duration: root.animDuration
-                easing.type: Easing.OutCubic
+                duration: root.animDuration * 1.1
+                easing.type: Easing.OutQuint
             }
 
             onFinished: {
@@ -249,6 +300,15 @@ Kicker.DashboardWindow {
                 property: "opacity"
                 from: 1
                 to: 0
+                duration: Math.round(root.animDuration * 0.5)
+                easing.type: Easing.InCubic
+            }
+            // Recede back into the screen plane while fading out
+            NumberAnimation {
+                target: rootItem
+                property: "scale"
+                from: 1
+                to: 0.97
                 duration: Math.round(root.animDuration * 0.5)
                 easing.type: Easing.InCubic
             }
@@ -286,6 +346,8 @@ Kicker.DashboardWindow {
                         dashboardGrid.animateEntrance();
                     } else if (rootItem.showingAllApps) {
                         allAppsView.animateEntrance();
+                    } else if (root.showingRecent) {
+                        recentView.animateEntrance();
                     } else {
                         allAppsGrid.animateEntrance();
                     }
@@ -299,6 +361,19 @@ Kicker.DashboardWindow {
             anchors.fill: parent
             color: Kirigami.Theme.backgroundColor
             opacity: root.bgOpacity
+        }
+
+        // Focus dim — darkens the backdrop while searching so the results
+        // read as a raised layer above everything else
+        Rectangle {
+            id: searchDimRect
+            anchors.fill: parent
+            color: "black"
+            opacity: root.searching ? 0.2 : 0
+
+            Behavior on opacity {
+                NumberAnimation { duration: root.animDuration * 0.7; easing.type: Easing.OutCubic }
+            }
         }
 
         Connections {
@@ -1252,11 +1327,25 @@ Kicker.DashboardWindow {
             anchors.bottom: categoryRowContainer.top
             anchors.bottomMargin: Kirigami.Units.largeSpacing * 2
 
-            width: Kirigami.Units.gridUnit * 16
+            // Hero motion: the pill stretches with a springy overshoot when a
+            // query begins, signalling the mode change before results land.
+            width: Kirigami.Units.gridUnit * (root.searching ? 22 : 16)
             topPadding: Kirigami.Units.largeSpacing
             bottomPadding: Kirigami.Units.largeSpacing
             leftPadding: Kirigami.Units.largeSpacing * 2 + Kirigami.Units.iconSizes.small
             rightPadding: Kirigami.Units.largeSpacing * 2 + (root.searching ? Kirigami.Units.iconSizes.small : 0)
+
+            Behavior on width {
+                NumberAnimation {
+                    duration: root.animDuration * 1.3
+                    easing.type: Easing.OutBack
+                    easing.overshoot: 1.1
+                }
+            }
+
+            Behavior on rightPadding {
+                NumberAnimation { duration: root.animDuration * 0.6; easing.type: Easing.OutCubic }
+            }
 
             placeholderText: i18nc("@info:placeholder", "Search applications…")
             horizontalAlignment: TextInput.AlignHCenter
@@ -1287,7 +1376,7 @@ Kicker.DashboardWindow {
                 }
             }
 
-            // Search icon
+            // Search icon — wakes up (accent color + a small pop) while searching
             Kirigami.Icon {
                 source: "search"
                 width: Kirigami.Units.iconSizes.small
@@ -1295,7 +1384,23 @@ Kicker.DashboardWindow {
                 anchors.left: parent.left
                 anchors.leftMargin: Kirigami.Units.largeSpacing
                 anchors.verticalCenter: parent.verticalCenter
-                opacity: 0.5
+                opacity: root.searching ? 1.0 : 0.5
+                color: root.searching ? Kirigami.Theme.highlightColor : Kirigami.Theme.textColor
+                scale: root.searching ? 1.15 : 1.0
+
+                Behavior on opacity {
+                    NumberAnimation { duration: root.animDuration * 0.6; easing.type: Easing.OutCubic }
+                }
+                Behavior on color {
+                    ColorAnimation { duration: root.animDuration * 0.6; easing.type: Easing.OutCubic }
+                }
+                Behavior on scale {
+                    NumberAnimation {
+                        duration: root.animDuration
+                        easing.type: Easing.OutBack
+                        easing.overshoot: 2.0
+                    }
+                }
             }
 
             // Clear / back button
@@ -1309,9 +1414,18 @@ Kicker.DashboardWindow {
                 anchors.verticalCenter: parent.verticalCenter
                 visible: root.searching
                 opacity: clearMouse.containsMouse ? 1.0 : 0.5
+                // Pops in with a playful overshoot once there is text to clear
+                scale: root.searching ? 1.0 : 0.0
 
                 Behavior on opacity {
                     NumberAnimation { duration: 150 }
+                }
+                Behavior on scale {
+                    NumberAnimation {
+                        duration: root.animDuration * 0.9
+                        easing.type: Easing.OutBack
+                        easing.overshoot: 2.5
+                    }
                 }
 
                 MouseArea {
@@ -1344,6 +1458,8 @@ Kicker.DashboardWindow {
                     if (root.searching) {
                         mainView.currentItem.tryActivate(0, 0);
                         mainView.currentItem.forceActiveFocus();
+                    } else if (root.showingRecent) {
+                        recentView.tryActivate();
                     } else {
                         allAppsGrid.tryActivate(0, 0);
                         allAppsGrid.forceActiveFocus();
@@ -1363,10 +1479,20 @@ Kicker.DashboardWindow {
             anchors.bottom: contentArea.top
             anchors.bottomMargin: Kirigami.Units.largeSpacing * 2
             opacity: root.searching ? 0 : 1
+            // Recedes while searching; the OutBack return gives the pills a
+            // springy re-entrance when the query is cleared
+            scale: root.searching ? 0.9 : 1.0
             enabled: !root.searching
 
             Behavior on opacity {
-                NumberAnimation { duration: 200; easing.type: Easing.OutCubic }
+                NumberAnimation { duration: root.animDuration * 0.6; easing.type: Easing.OutCubic }
+            }
+            Behavior on scale {
+                NumberAnimation {
+                    duration: root.animDuration
+                    easing.type: Easing.OutBack
+                    easing.overshoot: 1.2
+                }
             }
 
             // Sum children widths to know the single-line (unclipped) width
@@ -1427,7 +1553,7 @@ Kicker.DashboardWindow {
                 }
 
                 Behavior on scale {
-                    NumberAnimation { duration: root.hoverEffectDuration; easing.type: Easing.OutCubic }
+                    NumberAnimation { duration: root.hoverEffectDuration; easing.type: Easing.OutBack; easing.overshoot: 2.0 }
                 }
 
                 scale: dashCatMouse.pressed ? 0.93 : 1.0
@@ -1451,11 +1577,7 @@ Kicker.DashboardWindow {
 
                     onClicked: {
                         if (rootItem.showingDashboard) {
-                            rootItem.showingDashboard = false;
-                            categoryRow.currentCategory = 0;
-                            allAppsGrid.model = rootModel.modelForRow(0);
-                            allAppsGrid.currentIndex = -1;
-                            allAppsGrid.animateEntrance();
+                            root.selectCategory(0);
                         } else {
                             rootItem.showingDashboard = true;
                             rootItem.showingAllApps = false;
@@ -1484,7 +1606,7 @@ Kicker.DashboardWindow {
                 }
 
                 Behavior on scale {
-                    NumberAnimation { duration: root.hoverEffectDuration; easing.type: Easing.OutCubic }
+                    NumberAnimation { duration: root.hoverEffectDuration; easing.type: Easing.OutBack; easing.overshoot: 2.0 }
                 }
 
                 scale: allAppsCatMouse.pressed ? 0.93 : 1.0
@@ -1508,11 +1630,7 @@ Kicker.DashboardWindow {
 
                     onClicked: {
                         if (rootItem.showingAllApps) {
-                            rootItem.showingAllApps = false;
-                            categoryRow.currentCategory = 0;
-                            allAppsGrid.model = rootModel.modelForRow(0);
-                            allAppsGrid.currentIndex = -1;
-                            allAppsGrid.animateEntrance();
+                            root.selectCategory(0);
                         } else {
                             rootItem.showingDashboard = false;
                             rootItem.showingAllApps = true;
@@ -1529,6 +1647,18 @@ Kicker.DashboardWindow {
                 model: rootModel
 
                 delegate: Rectangle {
+                    id: catBtn
+
+                    readonly property string categoryLabel:
+                        model.display === "All Applications" ? i18n("Alphabetically")
+                        : model.display === "Recent Applications" ? i18n("Recent Apps")
+                        : (model.display || "")
+
+                    // RootModel emits a placeholder row between "All Applications"
+                    // and the real categories: empty label, and modelForRow() returns
+                    // null. Without this it renders as a blank pill mid-row.
+                    visible: categoryLabel.trim().length > 0
+
                     width: catLabel.implicitWidth + Kirigami.Units.largeSpacing * 3
                     height: catLabel.implicitHeight + Kirigami.Units.largeSpacing
                     radius: height / 2
@@ -1544,7 +1674,7 @@ Kicker.DashboardWindow {
                     }
 
                     Behavior on scale {
-                        NumberAnimation { duration: root.hoverEffectDuration; easing.type: Easing.OutCubic }
+                        NumberAnimation { duration: root.hoverEffectDuration; easing.type: Easing.OutBack; easing.overshoot: 2.0 }
                     }
 
                     scale: catMouse.pressed ? 0.93 : 1.0
@@ -1552,9 +1682,7 @@ Kicker.DashboardWindow {
                     PlasmaComponents.Label {
                         id: catLabel
                         anchors.centerIn: parent
-                        text: model.display === "All Applications" ? i18n("Alphabetically")
-                            : model.display === "Recent Applications" ? i18n("Recent Apps")
-                            : model.display
+                        text: catBtn.categoryLabel
                         font.pointSize: Kirigami.Theme.defaultFont.pointSize - 0.5
                         font.weight: categoryRow.currentCategory === index ? Font.DemiBold : Font.Normal
                         color: categoryRow.currentCategory === index
@@ -1569,17 +1697,7 @@ Kicker.DashboardWindow {
                         cursorShape: Qt.PointingHandCursor
 
                         onClicked: {
-                            rootItem.showingDashboard = false;
-                            rootItem.showingAllApps = false;
-                            if (categoryRow.currentCategory === index) {
-                                categoryRow.currentCategory = 0;
-                                allAppsGrid.model = rootModel.modelForRow(0);
-                            } else {
-                                categoryRow.currentCategory = index;
-                                allAppsGrid.model = rootModel.modelForRow(index);
-                            }
-                            allAppsGrid.currentIndex = -1;
-                            allAppsGrid.animateEntrance();
+                            root.selectCategory(categoryRow.currentCategory === index ? 0 : index);
                         }
                     }
                 }
@@ -1603,7 +1721,10 @@ Kicker.DashboardWindow {
 
         StackView {
             id: mainView
-            visible: !rootItem.showingDashboard && !rootItem.showingAllApps || root.searching
+            // Stays visible while a transition runs so leaving search animates
+            // out instead of snapping off under the returning view
+            visible: (!rootItem.showingDashboard && !rootItem.showingAllApps && !root.showingRecent)
+                     || root.searching || mainView.busy
             anchors.fill: parent
 
             initialItem: Column {
@@ -1611,10 +1732,22 @@ Kicker.DashboardWindow {
                 clip: true
                 spacing: Kirigami.Units.largeSpacing * 2
 
-                // Back button for letter sub-model navigation
+                // Mirrors contentArea.height — using parent.height here would feed
+                // back into the Column's implicit height.
+                readonly property int fullGridHeight: Math.ceil(root.height * 0.6 / root.cellSize) * root.cellSize
+
+                readonly property int chromeHeight: backButton.visible ? backButton.height + spacing : 0
+
+                readonly property int gridHeight: fullGridHeight - chromeHeight
+
+                // Back button for letter sub-model navigation.
+                // Not gated on `searching` — during a search this page is the
+                // covered StackView base, and hiding the button mid-exit-fade
+                // makes the layout visibly jump (reset() clears parentModel
+                // when search ends, so it never lingers).
                 Rectangle {
                     id: backButton
-                    visible: allAppsGrid.parentModel !== null && !root.searching
+                    visible: allAppsGrid.parentModel !== null
                     width: backLabel.implicitWidth + Kirigami.Units.largeSpacing * 3
                     height: visible ? backLabel.implicitHeight + Kirigami.Units.largeSpacing : 0
                     radius: height / 2
@@ -1628,7 +1761,7 @@ Kicker.DashboardWindow {
 
                     scale: backMouse.pressed ? 0.93 : 1.0
                     Behavior on scale {
-                        NumberAnimation { duration: root.hoverEffectDuration; easing.type: Easing.OutCubic }
+                        NumberAnimation { duration: root.hoverEffectDuration; easing.type: Easing.OutBack; easing.overshoot: 2.0 }
                     }
 
                     Row {
@@ -1668,14 +1801,19 @@ Kicker.DashboardWindow {
                 ItemGridView {
                     id: allAppsGrid
                     width: parent.width
-                    height: Math.ceil(root.height * 0.6 / cellHeight) * cellHeight
-                        - (backButton.visible ? backButton.height + allAppsColumn.spacing : 0)
+                    height: allAppsColumn.gridHeight
+                    anchors.horizontalCenter: parent.horizontalCenter
                     cellWidth: root.cellSize
-                    cellHeight: root.cellSize
+                    cellHeight: cellWidth
                     iconSize: root.iconSize
                     dragEnabled: false
                     dropEnabled: false
                     animatedEntrance: true
+
+                    // When the Dashboard, A-Z, or Recent view owns the stage this
+                    // grid is just the StackView's idle base page — keep it fully
+                    // hidden so it can't flash while the search push runs.
+                    opacity: (rootItem.showingDashboard || rootItem.showingAllApps || root.showingRecent) ? 0 : 1
 
                     property var parentModel: null
 
@@ -1736,20 +1874,24 @@ Kicker.DashboardWindow {
                 }
             }
 
-            // Smooth transitions between pages
+            // Shared-Z-axis transitions: entering search, the new page rises
+            // from behind (scales up) with a spring settle while the old page
+            // zooms slightly toward the viewer and fades. Popping reverses the
+            // depth so leaving search feels like stepping back out.
             pushEnter: Transition {
                 ParallelAnimation {
                     NumberAnimation {
                         property: "opacity"
                         from: 0; to: 1
-                        duration: root.animDuration * 0.6
+                        duration: root.animDuration * 0.7
                         easing.type: Easing.OutCubic
                     }
                     NumberAnimation {
-                        property: "y"
-                        from: 20; to: 0
-                        duration: root.animDuration * 0.6
-                        easing.type: Easing.OutCubic
+                        property: "scale"
+                        from: 0.9; to: 1
+                        duration: root.animDuration * 1.2
+                        easing.type: Easing.OutBack
+                        easing.overshoot: 1.1
                     }
                 }
             }
@@ -1757,14 +1899,14 @@ Kicker.DashboardWindow {
                 ParallelAnimation {
                     NumberAnimation {
                         property: "opacity"
-                        from: 1; to: 0
-                        duration: root.animDuration * 0.4
+                        to: 0
+                        duration: root.animDuration * 0.45
                         easing.type: Easing.InCubic
                     }
                     NumberAnimation {
-                        property: "y"
-                        from: 0; to: -20
-                        duration: root.animDuration * 0.4
+                        property: "scale"
+                        to: 1.08
+                        duration: root.animDuration * 0.45
                         easing.type: Easing.InCubic
                     }
                 }
@@ -1774,13 +1916,13 @@ Kicker.DashboardWindow {
                     NumberAnimation {
                         property: "opacity"
                         from: 0; to: 1
-                        duration: root.animDuration * 0.6
+                        duration: root.animDuration * 0.7
                         easing.type: Easing.OutCubic
                     }
                     NumberAnimation {
-                        property: "y"
-                        from: -20; to: 0
-                        duration: root.animDuration * 0.6
+                        property: "scale"
+                        from: 1.08; to: 1
+                        duration: root.animDuration * 0.7
                         easing.type: Easing.OutCubic
                     }
                 }
@@ -1789,14 +1931,14 @@ Kicker.DashboardWindow {
                 ParallelAnimation {
                     NumberAnimation {
                         property: "opacity"
-                        from: 1; to: 0
-                        duration: root.animDuration * 0.4
+                        to: 0
+                        duration: root.animDuration * 0.45
                         easing.type: Easing.InCubic
                     }
                     NumberAnimation {
-                        property: "y"
-                        from: 0; to: 20
-                        duration: root.animDuration * 0.4
+                        property: "scale"
+                        to: 0.9
+                        duration: root.animDuration * 0.45
                         easing.type: Easing.InCubic
                     }
                 }
@@ -1809,8 +1951,21 @@ Kicker.DashboardWindow {
 
         Item {
             id: allAppsView
-            visible: rootItem.showingAllApps && !root.searching
+            // Animated hand-off instead of a visibility snap: fades while
+            // zooming slightly toward the viewer (shared-Z depth), matching
+            // the search push underneath
+            readonly property bool shown: rootItem.showingAllApps && !root.searching
+            visible: opacity > 0.01
+            opacity: shown ? 1 : 0
+            scale: shown ? 1 : 1.05
             anchors.fill: parent
+
+            Behavior on opacity {
+                NumberAnimation { duration: root.animDuration * 0.6; easing.type: Easing.OutCubic }
+            }
+            Behavior on scale {
+                NumberAnimation { duration: root.animDuration * 0.8; easing.type: Easing.OutCubic }
+            }
 
             property var alphaModel: null
 
@@ -1971,8 +2126,19 @@ animatedEntrance: true
 
         Item {
             id: dashboardView
-            visible: rootItem.showingDashboard && !root.searching
+            // Same animated hand-off as allAppsView — see comment there
+            readonly property bool shown: rootItem.showingDashboard && !root.searching
+            visible: opacity > 0.01
+            opacity: shown ? 1 : 0
+            scale: shown ? 1 : 1.05
             anchors.fill: parent
+
+            Behavior on opacity {
+                NumberAnimation { duration: root.animDuration * 0.6; easing.type: Easing.OutCubic }
+            }
+            Behavior on scale {
+                NumberAnimation { duration: root.animDuration * 0.8; easing.type: Easing.OutCubic }
+            }
 
             property int currentPage: 0
             property int pageCount: Math.max(1, Math.ceil(dashboardModel.count / root.itemsPerPage))
@@ -1992,8 +2158,8 @@ animatedEntrance: true
                 id: pageAnimation
                 target: dashboardGrid
                 property: "contentX"
-                duration: 300
-                easing.type: Easing.OutCubic
+                duration: root.animDuration * 1.1
+                easing.type: Easing.OutQuint
             }
 
             // Close launcher when clicking empty space in the dashboard.
@@ -2065,7 +2231,12 @@ animatedEntrance: true
                 model: dashboardModel
 
                 moveDisplaced: Transition {
-                    NumberAnimation { properties: "x,y"; duration: 200; easing.type: Easing.OutCubic }
+                    NumberAnimation {
+                        properties: "x,y"
+                        duration: 250
+                        easing.type: Easing.OutBack
+                        easing.overshoot: 1.1
+                    }
                 }
 
                 delegate: Item {
@@ -2077,11 +2248,12 @@ animatedEntrance: true
                     property bool isFolder: model.type === "folder"
                     property bool entranceComplete: root.iconEntranceDuration <= 0
 
-                    // Staggered entrance animation
+                    // Staggered entrance animation — dashEntranceAnim drives the
+                    // 0.7 → 1 spring; this binding only handles hover afterwards
                     opacity: root.iconEntranceDuration > 0 ? 0 : 1
-                    scale: entranceComplete ? (dashMA.containsMouse && !dashMA.dragging ? 1.06 : 1.0) : 0.7
+                    scale: (entranceComplete && dashMA.containsMouse && !dashMA.dragging) ? 1.06 : 1.0
                     Behavior on scale {
-                        NumberAnimation { duration: root.hoverEffectDuration; easing.type: Easing.OutCubic }
+                        NumberAnimation { duration: root.hoverEffectDuration; easing.type: Easing.OutBack; easing.overshoot: 2.0 }
                     }
 
                     Component.onCompleted: {
@@ -2133,6 +2305,14 @@ animatedEntrance: true
                             duration: root.iconEntranceDuration * 0.875
                             easing.type: Easing.OutCubic
                         }
+                        NumberAnimation {
+                            target: dashDelegate
+                            property: "scale"
+                            from: 0.7; to: 1.0
+                            duration: root.iconEntranceDuration
+                            easing.type: Easing.OutBack
+                            easing.overshoot: 1.2
+                        }
                         onStarted: dashDelegate.entranceComplete = true
                     }
 
@@ -2151,10 +2331,14 @@ animatedEntrance: true
                         }
                         scale: dashboardGrid.readyToMerge && dashboardGrid.hoverTargetIndex === dashDelegate.itemIndex ? 1.15 : 1.0
                         Behavior on opacity {
-                            NumberAnimation { duration: 150 }
+                            NumberAnimation { duration: 150; easing.type: Easing.OutCubic }
                         }
                         Behavior on scale {
-                            NumberAnimation { duration: 250; easing.type: Easing.OutCubic }
+                            NumberAnimation {
+                                duration: 300
+                                easing.type: Easing.OutBack
+                                easing.overshoot: 1.6
+                            }
                         }
                     }
 
@@ -2411,19 +2595,29 @@ animatedEntrance: true
                 Repeater {
                     model: dashboardView.pageCount
                     delegate: Rectangle {
-                        width: Kirigami.Units.smallSpacing * 2
-                        height: width
-                        radius: width / 2
-                        color: dashboardView.currentPage === index
+                        readonly property bool isCurrent: dashboardView.currentPage === index
+
+                        // Active page stretches into a pill (Material 3 style)
+                        width: isCurrent ? Kirigami.Units.smallSpacing * 5 : Kirigami.Units.smallSpacing * 2
+                        height: Kirigami.Units.smallSpacing * 2
+                        radius: height / 2
+                        color: isCurrent
                             ? Kirigami.Theme.highlightColor
                             : Kirigami.Theme.textColor
-                        opacity: dashboardView.currentPage === index ? 1.0 : 0.3
+                        opacity: isCurrent ? 1.0 : 0.3
 
+                        Behavior on width {
+                            NumberAnimation {
+                                duration: root.animDuration * 0.9
+                                easing.type: Easing.OutBack
+                                easing.overshoot: 1.2
+                            }
+                        }
                         Behavior on opacity {
-                            NumberAnimation { duration: 200; easing.type: Easing.OutCubic }
+                            NumberAnimation { duration: root.animDuration * 0.6; easing.type: Easing.OutCubic }
                         }
                         Behavior on color {
-                            ColorAnimation { duration: 200; easing.type: Easing.OutCubic }
+                            ColorAnimation { duration: root.animDuration * 0.6; easing.type: Easing.OutCubic }
                         }
 
                         MouseArea {
@@ -2446,6 +2640,15 @@ animatedEntrance: true
                 opacity: 0.5
                 font.pointSize: Kirigami.Theme.defaultFont.pointSize + 1
             }
+        }
+
+        // =============================================
+        //        RECENT APPS / FILES VIEW
+        // =============================================
+
+        RecentView {
+            id: recentView
+            anchors.fill: parent
         }
 
         } // end contentArea
@@ -2473,18 +2676,26 @@ animatedEntrance: true
                 }
             }
 
+            // Card pops open with a spring settle; closing is quicker and
+            // clean (no bounce) so dismissal feels immediate
             ParallelAnimation {
                 id: folderOpenAnim
                 NumberAnimation { target: folderDimBg; property: "opacity"; from: 0; to: 0.4; duration: root.folderPopupDuration; easing.type: Easing.OutCubic }
-                NumberAnimation { target: folderCard; property: "scale"; from: 0.8; to: 1.0; duration: root.folderPopupDuration; easing.type: Easing.OutCubic }
-                NumberAnimation { target: folderCard; property: "opacity"; from: 0; to: 1.0; duration: root.folderPopupDuration; easing.type: Easing.OutCubic }
+                NumberAnimation {
+                    target: folderCard; property: "scale"
+                    from: 0.85; to: 1.0
+                    duration: root.folderPopupDuration * 1.3
+                    easing.type: Easing.OutBack
+                    easing.overshoot: 1.15
+                }
+                NumberAnimation { target: folderCard; property: "opacity"; from: 0; to: 1.0; duration: root.folderPopupDuration * 0.8; easing.type: Easing.OutCubic }
             }
 
             ParallelAnimation {
                 id: folderCloseAnim
-                NumberAnimation { target: folderDimBg; property: "opacity"; from: 0.4; to: 0; duration: root.folderPopupDuration; easing.type: Easing.InCubic }
-                NumberAnimation { target: folderCard; property: "scale"; from: 1.0; to: 0.8; duration: root.folderPopupDuration; easing.type: Easing.InCubic }
-                NumberAnimation { target: folderCard; property: "opacity"; from: 1.0; to: 0; duration: root.folderPopupDuration; easing.type: Easing.InCubic }
+                NumberAnimation { target: folderDimBg; property: "opacity"; from: 0.4; to: 0; duration: root.folderPopupDuration * 0.8; easing.type: Easing.InCubic }
+                NumberAnimation { target: folderCard; property: "scale"; from: 1.0; to: 0.9; duration: root.folderPopupDuration * 0.7; easing.type: Easing.InCubic }
+                NumberAnimation { target: folderCard; property: "opacity"; from: 1.0; to: 0; duration: root.folderPopupDuration * 0.7; easing.type: Easing.InCubic }
                 onFinished: folderPopup.lastOpenedFolderIndex = -1
             }
 
@@ -2597,7 +2808,12 @@ animatedEntrance: true
                     interactive: false
 
                     moveDisplaced: Transition {
-                        NumberAnimation { properties: "x,y"; duration: 200; easing.type: Easing.OutCubic }
+                        NumberAnimation {
+                            properties: "x,y"
+                            duration: 250
+                            easing.type: Easing.OutBack
+                            easing.overshoot: 1.1
+                        }
                     }
 
                     model: {
@@ -2644,7 +2860,7 @@ animatedEntrance: true
 
                         scale: folderItemMA.containsMouse && !folderItemMA.dragging ? 1.06 : 1.0
                         Behavior on scale {
-                            NumberAnimation { duration: root.hoverEffectDuration; easing.type: Easing.OutCubic }
+                            NumberAnimation { duration: root.hoverEffectDuration; easing.type: Easing.OutBack; easing.overshoot: 2.0 }
                         }
 
                         MouseArea {
@@ -2764,8 +2980,19 @@ animatedEntrance: true
                 cellHeight: root.cellSize
                 iconSize: root.iconSize
                 dragEnabled: false
-                animatedEntrance: false
+                animatedEntrance: true
                 model: runnerModel.count > 0 ? runnerModel.modelForRow(0) : undefined
+
+                // Stagger the icons in only when the first results land; later
+                // keystrokes swap the model silently so refinement doesn't
+                // re-trigger the choreography on every character.
+                property bool entrancePlayed: false
+                onCountChanged: {
+                    if (count > 0 && !entrancePlayed) {
+                        entrancePlayed = true;
+                        animateEntrance();
+                    }
+                }
 
                 onKeyNavDown: {
                     runnerGrid.focus = false;
@@ -2825,7 +3052,11 @@ animatedEntrance: true
                     opacity: 0.55
 
                     Behavior on width {
-                        NumberAnimation { duration: 300; easing.type: Easing.OutCubic }
+                        NumberAnimation {
+                            duration: root.animDuration
+                            easing.type: Easing.OutBack
+                            easing.overshoot: 1.1
+                        }
                     }
                 }
 
@@ -2862,7 +3093,7 @@ animatedEntrance: true
 
                             scale: runMA.pressed ? 0.88 : runMA.containsMouse ? 1.08 : 1.0
                             Behavior on scale {
-                                NumberAnimation { duration: root.hoverEffectDuration; easing.type: Easing.OutCubic }
+                                NumberAnimation { duration: root.hoverEffectDuration; easing.type: Easing.OutBack; easing.overshoot: 2.0 }
                             }
 
                             PlasmaComponents.ToolTip.text: model.AppName || model.display || ""
