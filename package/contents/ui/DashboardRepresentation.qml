@@ -766,7 +766,12 @@ Kicker.DashboardWindow {
             var stem = df.replace(/\.desktop$/i, "");
             if (!stem) return;
             var quoted = "'" + stem.replace(/'/g, "'\\''") + "'";
-            dashLauncher.connectSource("gtk-launch " + quoted + " #" + Date.now());
+            // Launch through KDE's ApplicationLauncherJob (via kstart) rather than
+            // gtk-launch. This is the same code path the Recent Apps view uses via
+            // the Kicker model's trigger(), so the .desktop Exec line — including
+            // fixed arguments like --no-sandbox — is honoured identically, and the
+            // app's StartupWMClass / single-instance handling is respected.
+            dashLauncher.connectSource("kstart --application " + quoted + " #" + Date.now());
         }
 
         function addToDashboard(desktopFile, name, icon) {

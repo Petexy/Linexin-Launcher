@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.1
+
+### Fixed
+
+- **Dashboard-pinned apps now launch through KDE's native application launcher.** Pinned apps were started with `gtk-launch`, a separate code path from the Recent Apps view (which uses the Kicker model's `trigger()` / `ApplicationLauncherJob`). Because `gtk-launch` did not execute the `.desktop` entry the way KDE does, fixed `Exec` arguments could be dropped or mishandled — e.g. AppImages that require `--no-sandbox` (such as Wootility) failed to start from the Dashboard while launching fine from Recent Apps. The Dashboard now launches via `kstart --application`, matching the Recent Apps path, so the full `Exec` line and each app's `StartupWMClass` / single-instance handling are honoured. As a bonus this drops the GTK dependency in favour of the Plasma-provided `kstart`.
+
 ## 1.1.0
 
 ### Added
