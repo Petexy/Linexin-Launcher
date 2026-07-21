@@ -19,6 +19,9 @@ msgstr ""
 msgid "Edit Applications…"
 msgstr "Modifier les applications…"
 
+msgid "General"
+msgstr "Général"
+
 msgid "Panel icon:"
 msgstr "Icône du panneau :"
 
@@ -81,11 +84,32 @@ msgstr "Taille des icônes d'applications actives :"
 msgid "System actions icon size:"
 msgstr "Taille des icônes d'actions système :"
 
+msgid "Font size"
+msgstr "Taille de police"
+
+msgid "Category bar:"
+msgstr "Barre de catégories :"
+
+msgid "All apps:"
+msgstr "Toutes les applications :"
+
+msgid "Recent apps:"
+msgstr "Applications récentes :"
+
+msgid "Recent files:"
+msgstr "Fichiers récents :"
+
+msgid "Animation duration"
+msgstr "Durée des animations"
+
 msgid "Open/Close:"
 msgstr "Ouvrir/Fermer :"
 
 msgid "Off"
 msgstr "Désactivé"
+
+msgid "App launch:"
+msgstr "Lancement d'application :"
 
 msgid "Icon entrance:"
 msgstr "Apparition des icônes :"
@@ -96,8 +120,32 @@ msgstr "Effets de survol :"
 msgid "Folder popup:"
 msgstr "Fenêtre de dossier :"
 
+msgid "Move icons:"
+msgstr "Déplacement des icônes :"
+
+msgid "Create folder:"
+msgstr "Création de dossier :"
+
+msgid "Add to folder:"
+msgstr "Ajout au dossier :"
+
+msgid "Remove from folder:"
+msgstr "Retrait du dossier :"
+
+msgid "Background"
+msgstr "Arrière-plan"
+
 msgid "Background opacity:"
 msgstr "Opacité de l'arrière-plan :"
+
+msgid "Background color:"
+msgstr "Couleur d'arrière-plan :"
+
+msgid "Use a custom color"
+msgstr "Utiliser une couleur personnalisée"
+
+msgid "Choose Background Color"
+msgstr "Choisir la couleur d'arrière-plan"
 
 msgid "Search:"
 msgstr "Recherche :"
@@ -171,6 +219,26 @@ msgstr "Alphabétiquement"
 
 msgid "All Letters"
 msgstr "Toutes les lettres"
+
+msgid "Clear History"
+msgstr "Effacer l'historique"
+
+msgid "Click again to confirm"
+msgstr "Cliquez à nouveau pour confirmer"
+
+msgid "Recent Files"
+msgstr "Fichiers récents"
+
+msgid "%1 item"
+msgid_plural "%1 items"
+msgstr[0] "%1 élément"
+msgstr[1] "%1 éléments"
+
+msgid "Files you open will show up here"
+msgstr "Les fichiers que vous ouvrez apparaîtront ici"
+
+msgid "Apps you launch will show up here"
+msgstr "Les applications que vous lancez apparaîtront ici"
 
 msgid "Folder"
 msgstr "Dossier"

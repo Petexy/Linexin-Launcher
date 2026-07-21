@@ -19,6 +19,9 @@ msgstr ""
 msgid "Edit Applications…"
 msgstr "Editar aplicativos…"
 
+msgid "General"
+msgstr "Geral"
+
 msgid "Panel icon:"
 msgstr "Ícone do painel:"
 
@@ -81,11 +84,32 @@ msgstr "Tamanho dos ícones de aplicativos ativos:"
 msgid "System actions icon size:"
 msgstr "Tamanho dos ícones de ações do sistema:"
 
+msgid "Font size"
+msgstr "Tamanho da fonte"
+
+msgid "Category bar:"
+msgstr "Barra de categorias:"
+
+msgid "All apps:"
+msgstr "Todos os aplicativos:"
+
+msgid "Recent apps:"
+msgstr "Aplicativos recentes:"
+
+msgid "Recent files:"
+msgstr "Arquivos recentes:"
+
+msgid "Animation duration"
+msgstr "Duração das animações"
+
 msgid "Open/Close:"
 msgstr "Abrir/Fechar:"
 
 msgid "Off"
 msgstr "Desligado"
+
+msgid "App launch:"
+msgstr "Inicialização do aplicativo:"
 
 msgid "Icon entrance:"
 msgstr "Entrada de ícones:"
@@ -96,8 +120,32 @@ msgstr "Efeitos de foco:"
 msgid "Folder popup:"
 msgstr "Janela de pasta:"
 
+msgid "Move icons:"
+msgstr "Mover ícones:"
+
+msgid "Create folder:"
+msgstr "Criar pasta:"
+
+msgid "Add to folder:"
+msgstr "Adicionar à pasta:"
+
+msgid "Remove from folder:"
+msgstr "Remover da pasta:"
+
+msgid "Background"
+msgstr "Fundo"
+
 msgid "Background opacity:"
 msgstr "Opacidade do fundo:"
+
+msgid "Background color:"
+msgstr "Cor do fundo:"
+
+msgid "Use a custom color"
+msgstr "Usar uma cor personalizada"
+
+msgid "Choose Background Color"
+msgstr "Escolher a cor do fundo"
 
 msgid "Search:"
 msgstr "Pesquisa:"
@@ -171,6 +219,26 @@ msgstr "Alfabeticamente"
 
 msgid "All Letters"
 msgstr "Todas as letras"
+
+msgid "Clear History"
+msgstr "Limpar histórico"
+
+msgid "Click again to confirm"
+msgstr "Clique novamente para confirmar"
+
+msgid "Recent Files"
+msgstr "Arquivos recentes"
+
+msgid "%1 item"
+msgid_plural "%1 items"
+msgstr[0] "%1 item"
+msgstr[1] "%1 itens"
+
+msgid "Files you open will show up here"
+msgstr "Os arquivos que você abrir aparecerão aqui"
+
+msgid "Apps you launch will show up here"
+msgstr "Os aplicativos que você iniciar aparecerão aqui"
 
 msgid "Folder"
 msgstr "Pasta"

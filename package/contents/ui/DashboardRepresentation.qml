@@ -68,7 +68,10 @@ Kicker.DashboardWindow {
         }
     }
 
-    property int cellSize: iconSize + (2 * Kirigami.Units.iconSizes.sizeForLabels)
+    // The label allowance grows (never shrinks) with the largest grid font
+    // scale in play, so bumped-up app names don't get clipped by the cell.
+    property int cellSize: iconSize + (2 * Kirigami.Units.iconSizes.sizeForLabels
+                                       * Math.max(1, dashboardFontScale, allAppsFontScale))
                            + (2 * Kirigami.Units.largeSpacing)
                            + (2 * Math.max(highlightItemSvg.margins.top + highlightItemSvg.margins.bottom,
                                            highlightItemSvg.margins.left + highlightItemSvg.margins.right))
@@ -91,6 +94,31 @@ Kicker.DashboardWindow {
                                  && categoryRow.currentCategory >= 0
                                  && categoryRow.currentCategory < recentRowCount
 
+    // -- Kicker model row labels --
+    // RootModel names its synthetic rows with i18n() strings from the
+    // "libkicker" catalog, so they arrive already translated. Matching them
+    // against the English literals left every non-English locale unable to
+    // find the all-apps row, i.e. an empty All Apps section. Translate the
+    // literals through the same catalog instead.
+    readonly property string allAppsRowLabel: i18nd("libkicker", "All Applications")
+    readonly property string recentAppsRowLabel: i18nd("libkicker", "Recent Applications")
+
+    // -- Font scaling --
+    // Each view keeps its own internal type hierarchy (headers larger than
+    // rows, group letters larger than app names); these multiply the whole
+    // hierarchy rather than replacing it, so proportions survive.
+    property real categoryFontScale: Plasmoid.configuration.categoryFontSize / 100.0
+    property real dashboardFontScale: Plasmoid.configuration.dashboardFontSize / 100.0
+    property real allAppsFontScale: Plasmoid.configuration.allAppsFontSize / 100.0
+    property real recentAppsFontScale: Plasmoid.configuration.recentAppsFontSize / 100.0
+    property real recentFilesFontScale: Plasmoid.configuration.recentFilesFontSize / 100.0
+
+    // Point sizes below ~4 render as unreadable specks and can collapse the
+    // layouts that size themselves off implicitHeight, so clamp the floor.
+    function scaledFont(base, scale) {
+        return Math.max(4, base * scale);
+    }
+
     // -- Animation properties --
     property int animDuration: Plasmoid.configuration.animationDuration
     property int iconEntranceDuration: Plasmoid.configuration.iconEntranceDuration
@@ -98,13 +126,54 @@ Kicker.DashboardWindow {
     property int folderPopupDuration: Plasmoid.configuration.folderPopupDuration
     property int appLaunchDuration: Plasmoid.configuration.appLaunchDuration
     property int dragMoveDuration: Plasmoid.configuration.dragMoveDuration
+    property int folderCreateDuration: Plasmoid.configuration.folderCreateDuration
+    property int folderAddDuration: Plasmoid.configuration.folderAddDuration
+    property int folderRemoveDuration: Plasmoid.configuration.folderRemoveDuration
     property real bgOpacity: Plasmoid.configuration.backgroundOpacity / 100.0
+    property color bgColor: Plasmoid.configuration.useCustomBackgroundColor
+        ? Plasmoid.configuration.backgroundColor
+        : Kirigami.Theme.backgroundColor
 
     // State tracking for open/close animation
     property bool isOpening: false
     property bool isClosing: false
 
     backgroundColor: "transparent"
+
+    // -- Always on top --
+    // Kicker's DashboardWindow is a bare frameless QQuickWindow: it asks for no
+    // stacking hint at all and only re-takes focus on X11. KWin puts a
+    // fullscreen window in the active layer *only while it is the active
+    // window*, so the moment the launcher loses activation it drops to the
+    // normal layer and the panel — or any window raised from a second screen,
+    // a global shortcut, or an app that maps itself — draws straight over it.
+    //
+    // Two mechanisms, because no single one covers both sessions:
+    //   - Qt.WindowStaysOnTopHint is honoured on X11 and XWayland.
+    //   - Wayland has no keep-above request a client can make, so we re-assert
+    //     activation instead, which is what puts us back in the active layer.
+    //     requestActivate() goes out as an xdg-activation request; KWin treats
+    //     plasmashell as privileged in window management and grants it a token
+    //     stamped with the current interaction serial, so this is honoured
+    //     rather than downgraded to "demands attention".
+    //
+    // The timer that drives this lives in rootItem, not here: DashboardWindow's
+    // default property is `mainItem`, a single Item, so any unnamed child
+    // declared at this level is an assignment to it.
+    function stayOnTop() {
+        raise();
+        requestActivate();
+    }
+
+    onActiveChanged: {
+        // isClosing covers the dismiss and app-launch animations: the window is
+        // still mapped there, and stealing focus back would rip it away from
+        // the app we just launched.
+        if (active || !visible || isClosing) {
+            return;
+        }
+        restackTimer.restart();
+    }
 
     onKeyEscapePressed: {
         if (rootItem.openFolderIndex !== -1) {
@@ -125,6 +194,7 @@ Kicker.DashboardWindow {
         if (visible) {
             isOpening = true;
             isClosing = false;
+            stayOnTop();
             // Clear any in-flight launch zoom so an interrupted launch can't
             // leave the board scaled up on the next open. Flush first: stopping
             // the animation skips its onFinished, which would otherwise strand
@@ -192,6 +262,27 @@ Kicker.DashboardWindow {
             allAppsGrid.model = rootModel.modelForRow(row);
             allAppsGrid.currentIndex = -1;
             allAppsGrid.animateEntrance();
+        }
+    }
+
+    // Where a category pill sends you when it is clicked while already active:
+    // back to the configured Starting Category, same target reset() picks on
+    // open. Falls back to row 0 when the configured row no longer exists.
+    function selectDefaultCategory() {
+        var defCat = Plasmoid.configuration.defaultCategory;
+        if (defCat === -2) {
+            rootItem.showingDashboard = true;
+            rootItem.showingAllApps = false;
+            categoryRow.currentCategory = -1;
+            dashboardGrid.animateEntrance();
+        } else if (defCat === -1) {
+            rootItem.showingDashboard = false;
+            rootItem.showingAllApps = true;
+            categoryRow.currentCategory = -1;
+            allAppsView.populate();
+            allAppsView.animateEntrance();
+        } else {
+            selectCategory(Math.max(0, Math.min(defCat, rootModel.count - 1)));
         }
     }
 
@@ -282,8 +373,7 @@ Kicker.DashboardWindow {
             }
         }
 
-        dashboardView.currentPage = 0;
-        dashboardGrid.contentX = 0;
+        dashboardView.resetToFirstPage();
         allAppsGrid.currentIndex = -1;
         systemFavoritesGrid.currentIndex = -1;
 
@@ -315,6 +405,22 @@ Kicker.DashboardWindow {
             origin.y: rootItem.height / 2
             xScale: 1.0
             yScale: 1.0
+        }
+
+        // Re-asserts root.stayOnTop() shortly after the launcher loses
+        // activation. Deferred by a frame or two rather than run straight from
+        // onActiveChanged: activation flips twice in quick succession while one
+        // of our own popups is being mapped, and reacting to the first of those
+        // would fight Qt's own focus handling.
+        Timer {
+            id: restackTimer
+            interval: 50
+            repeat: false
+            onTriggered: {
+                if (root.visible && !root.active && !root.isClosing) {
+                    root.stayOnTop();
+                }
+            }
         }
 
         // Background click handler — closes the launcher when clicking empty space
@@ -450,42 +556,54 @@ Kicker.DashboardWindow {
         // a fast exit — but it must never actually rest. Easing.In* is the
         // obvious pick and the wrong one: it leaves from *zero* velocity, so
         // the board sits visibly frozen before it moves. This curve instead
-        // departs at ~0.5x speed (gentle, but real motion from frame one) and
-        // arrives at ~2.2x, so the dive is at its fastest exactly as it
+        // departs at ~0.6x speed (gentle, but real motion from frame one) and
+        // arrives at ~1.6x, so the dive is at its fastest exactly as it
         // vanishes. No control point sits at y=1.0, so it never stalls at
         // full zoom either.
+        //
+        // Every track below shares that one curve and the *same* duration, and
+        // that uniformity is the point. The earlier version mixed an
+        // accelerating scale with two InCubic fades — and because bgRect is a
+        // child of rootItem the fades multiplied, so the compound alpha sat
+        // near-flat through exactly the stretch where the scale was slowest.
+        // Nothing visibly changed for the middle third of the flight: the
+        // "brief stop" that read as a lag. bgRect ending at 80% compounded it,
+        // freezing the backdrop while the rest was still travelling.
         ParallelAnimation {
             id: appLaunchAnimation
+
+            readonly property var diveCurve: [0.25, 0.15, 0.6, 0.4, 1.0, 1.0]
 
             NumberAnimation {
                 target: launchScale; property: "xScale"
                 from: 1.0; to: 2.0
                 duration: root.appLaunchDuration
                 easing.type: Easing.Bezier
-                easing.bezierCurve: [0.3, 0.15, 0.75, 0.45, 1.0, 1.0]
+                easing.bezierCurve: appLaunchAnimation.diveCurve
             }
             NumberAnimation {
                 target: launchScale; property: "yScale"
                 from: 1.0; to: 2.0
                 duration: root.appLaunchDuration
                 easing.type: Easing.Bezier
-                easing.bezierCurve: [0.3, 0.15, 0.75, 0.45, 1.0, 1.0]
+                easing.bezierCurve: appLaunchAnimation.diveCurve
             }
-            // Runs the full duration now. With an accelerating scale the last
-            // stretch is the fastest, so holding the board visible into it is
-            // what sells the "quicker out" — the earlier 80% cutoff would hide
-            // the rush and leave only the slow opening half on screen.
+            // Both fades run the full duration on the dive curve, so the board
+            // dissolves at the same rate it travels — fastest right as it
+            // disappears, with no flat spot anywhere in between.
             NumberAnimation {
                 target: rootItem; property: "opacity"
                 from: 1; to: 0
                 duration: root.appLaunchDuration
-                easing.type: Easing.InCubic
+                easing.type: Easing.Bezier
+                easing.bezierCurve: appLaunchAnimation.diveCurve
             }
             NumberAnimation {
                 target: bgRect; property: "opacity"
                 from: root.bgOpacity; to: 0
-                duration: Math.round(root.appLaunchDuration * 0.8)
-                easing.type: Easing.InCubic
+                duration: root.appLaunchDuration
+                easing.type: Easing.Bezier
+                easing.bezierCurve: appLaunchAnimation.diveCurve
             }
 
             onFinished: {
@@ -527,8 +645,12 @@ Kicker.DashboardWindow {
         Rectangle {
             id: bgRect
             anchors.fill: parent
-            color: Kirigami.Theme.backgroundColor
+            color: root.bgColor
             opacity: root.bgOpacity
+
+            Behavior on color {
+                ColorAnimation { duration: root.hoverEffectDuration }
+            }
 
             // Cancels out rootItem's launch-zoom Scale (see launchScale) so the
             // fullscreen backdrop stays put — only the foreground content dives
@@ -936,6 +1058,13 @@ Kicker.DashboardWindow {
         property bool showingAllApps: false
         property int openFolderIndex: -1  // index of currently open folder, -1 if none
 
+        // Bumped on every dashboard rebuild. The folder popup sizes itself from
+        // dashboardModel.get(i).apps.count, which is reached through a plain JS
+        // lookup rather than a tracked binding, so it would otherwise keep the
+        // stale size after an item joins or leaves the open folder. Reading this
+        // alongside it forces the re-measure, and lets the card animate to it.
+        property int folderRevision: 0
+
         property var dashboardApps: {
             try { return JSON.parse(Plasmoid.configuration.dashboardApps || "[]"); }
             catch(e) { return []; }
@@ -998,28 +1127,57 @@ Kicker.DashboardWindow {
             dashboardModel.reload();
         }
 
-        function removeFromFolder(folderIndex, appDesktopFile) {
+        // Where a working-array index lands once the model is rebuilt.
+        // saveFromArray() persists only pinned entries and reload() re-appends
+        // them ahead of the auto ones, so any auto item sitting earlier in the
+        // array drops out of the count.
+        function pinnedIndexOf(arr, idx) {
+            var n = 0;
+            for (var i = 0; i < idx && i < arr.length; i++) {
+                if (arr[i].type !== "auto") n++;
+            }
+            return n;
+        }
+
+        // --- Folder mutations: plan / commit ---
+        //
+        // Each of these is split in two. The plan* half is pure — it works out
+        // the resulting array and where things end up — and the commit half
+        // writes it. Splitting them lets the caller start the transition, hold
+        // the write until the motion reaches the point where the grid should
+        // change, and tell the rebuilt delegates which arrival beat to play.
+        // See the FOLDER CHOREOGRAPHY FX section.
+
+        function planRemoveFromFolder(folderIndex, appDesktopFile) {
             var apps = modelToArray();
             var folder = apps[folderIndex];
-            if (!folder || folder.type !== "folder") return;
+            if (!folder || folder.type !== "folder") return null;
 
             folder.apps = folder.apps.filter(function(a) { return a.desktopFile !== appDesktopFile; });
 
             // If folder has 1 or 0 apps left, dissolve it
             if (folder.apps.length === 1) {
                 apps[folderIndex] = folder.apps[0];
+                apps[folderIndex].type = "app";
             } else if (folder.apps.length === 0) {
                 apps.splice(folderIndex, 1);
             } else {
                 apps[folderIndex] = folder;
             }
 
-            var wasFolder = (apps[folderIndex] && apps[folderIndex].type === "folder");
-            saveFromArray(apps);
-            if (openFolderIndex === folderIndex && !wasFolder) {
-                openFolderIndex = -1;
-            }
+            var survives = (apps[folderIndex] && apps[folderIndex].type === "folder");
+            return {
+                apps: apps,
+                folderIndex: survives ? pinnedIndexOf(apps, folderIndex) : -1,
+                folderSurvives: survives
+            };
         }
+
+        function commitFolderPlan(plan) {
+            if (!plan) return;
+            saveFromArray(plan.apps);
+        }
+
 
         function reorderInFolder(folderIndex, fromIdx, toIdx) {
             var apps = modelToArray();
@@ -1033,10 +1191,10 @@ Kicker.DashboardWindow {
             saveFromArray(apps);
         }
 
-        function moveAppOutOfFolder(folderIndex, appIndex) {
+        function planMoveAppOutOfFolder(folderIndex, appIndex) {
             var apps = modelToArray();
             var folder = apps[folderIndex];
-            if (!folder || folder.type !== "folder") return;
+            if (!folder || folder.type !== "folder") return null;
             var arr = folder.apps.slice();
             var item = arr.splice(appIndex, 1)[0];
             // Mark the extracted item as a pinned app
@@ -1057,12 +1215,15 @@ Kicker.DashboardWindow {
             var insertIdx = Math.min(folderIndex + 1, apps.length);
             apps.splice(insertIdx, 0, item);
 
-            var wasFolder = (apps[folderIndex] && apps[folderIndex].type === "folder");
-            saveFromArray(apps);
-            if (!wasFolder) {
-                openFolderIndex = -1;
-            }
+            var survives = (apps[folderIndex] && apps[folderIndex].type === "folder");
+            return {
+                apps: apps,
+                landIndex: pinnedIndexOf(apps, insertIdx),
+                folderIndex: survives ? pinnedIndexOf(apps, folderIndex) : -1,
+                folderSurvives: survives
+            };
         }
+
 
         function removeFolder(folderIndex) {
             var apps = modelToArray();
@@ -1079,14 +1240,17 @@ Kicker.DashboardWindow {
             openFolderIndex = -1;
         }
 
-        function createFolder(indexA, indexB) {
+        function planCreateFolder(indexA, indexB) {
             // Merge two dashboard items into a folder
             var apps = modelToArray();
             var itemA = apps[indexA];
             var itemB = apps[indexB];
-            if (!itemA || !itemB) return;
+            if (!itemA || !itemB) return null;
 
             var folderApps = [];
+            var keptIdx;        // working-array slot the surviving folder sits in
+            var isNew = false;  // a folder came into being, rather than growing
+
             // If A is already a folder, add B into it
             if (itemA.type === "folder") {
                 folderApps = (itemA.apps || []).slice();
@@ -1097,6 +1261,7 @@ Kicker.DashboardWindow {
                 }
                 apps[indexA] = {type: "folder", name: itemA.name, apps: folderApps};
                 apps.splice(indexB, 1);
+                keptIdx = indexB < indexA ? indexA - 1 : indexA;
             }
             // If B is already a folder, add A into it
             else if (itemB.type === "folder") {
@@ -1104,6 +1269,7 @@ Kicker.DashboardWindow {
                 folderApps.unshift({desktopFile: itemA.desktopFile, name: itemA.name, icon: itemA.icon});
                 apps[indexB] = {type: "folder", name: itemB.name, apps: folderApps};
                 apps.splice(indexA, 1);
+                keptIdx = indexA < indexB ? indexB - 1 : indexB;
             }
             // Both are regular apps (or auto) — create new folder
             else {
@@ -1116,13 +1282,13 @@ Kicker.DashboardWindow {
                     ]
                 };
                 // Replace the target (B) with the folder, remove the dragged (A)
-                var minIdx = Math.min(indexA, indexB);
-                var maxIdx = Math.max(indexA, indexB);
                 apps[indexB] = folder;
                 apps.splice(indexA, 1);
+                keptIdx = indexA < indexB ? indexB - 1 : indexB;
+                isNew = true;
             }
 
-            saveFromArray(apps);
+            return {apps: apps, folderIndex: pinnedIndexOf(apps, keptIdx), isNew: isNew};
         }
 
         function renameFolder(folderIndex, newName) {
@@ -1131,6 +1297,79 @@ Kicker.DashboardWindow {
                 apps[folderIndex].name = newName;
                 saveFromArray(apps);
             }
+        }
+
+        // Centre of grid cell `idx`, in root coordinates.
+        //
+        // Worked out from the grid's fixed cell geometry rather than by asking
+        // the delegate where it is. A flight is aimed at the slot an item will
+        // end up in, and at the moment of aiming that delegate either does not
+        // exist yet or is still sliding towards the slot — either way its own
+        // position is the wrong answer. Cell n, on the other hand, is always the
+        // same place on screen.
+        function cellCentre(grid, idx) {
+            var cols = Math.max(1, Math.round(grid.width / grid.cellWidth));
+            return grid.mapToItem(rootItem,
+                ((idx % cols) + 0.5) * grid.cellWidth - grid.contentX,
+                (Math.floor(idx / cols) + 0.5) * grid.cellHeight - grid.contentY);
+        }
+
+        // Drops an app out of the open folder and onto the dashboard. The icon
+        // flies from wherever it was let go to the slot it will occupy, and the
+        // write lands with it so the grid never shows an intermediate state.
+        function ejectToDashboard(folderIndex, appIndex, icon, fromX, fromY) {
+            var plan = planMoveAppOutOfFolder(folderIndex, appIndex);
+            if (!plan) return;
+
+            var dur = root.folderRemoveDuration;
+            var to = cellCentre(dashboardGrid, plan.landIndex);
+            if (plan.folderSurvives && dur > 0) {
+                folderCardRecoil.start();
+            }
+
+            dashboardGrid.beginFolderFx(-1, -1, plan.landIndex, dur, function() {
+                commitFolderPlan(plan);
+            });
+            // The rebuild can shift the folder's row; follow it so the popup
+            // keeps showing the folder the user is actually looking at.
+            openFolderIndex = plan.folderSurvives ? plan.folderIndex : -1;
+
+            folderFx.fly(icon, fromX, fromY, to.x, to.y, dur, 1.0, false);
+        }
+
+        // Takes an app out of the folder and off the dashboard entirely. Nothing
+        // survives to land, so the icon is flung clear of the card and dissipates.
+        function dismissFromFolder(folderIndex, appIndex, appDesktopFile, icon) {
+            var plan = planRemoveFromFolder(folderIndex, appDesktopFile);
+            if (!plan) return;
+
+            var dur = root.folderRemoveDuration;
+            var from = cellCentre(folderGrid, appIndex);
+            var cardCx = folderCard.x + folderCard.width / 2;
+            var cardCy = folderCard.y + folderCard.height / 2;
+
+            // Thrown straight outwards from the middle of the card, so whichever
+            // cell it came from it leaves by the nearest edge.
+            var dx = from.x - cardCx;
+            var dy = from.y - cardCy;
+            var len = Math.sqrt(dx * dx + dy * dy);
+            if (len < 1) {
+                dx = 0; dy = -1; len = 1;
+            }
+            var reach = root.cellSize * 1.7;
+
+            if (plan.folderSurvives && dur > 0) {
+                folderCardRecoil.start();
+            }
+
+            commitFolderPlan(plan);
+            if (openFolderIndex === folderIndex) {
+                openFolderIndex = plan.folderSurvives ? plan.folderIndex : -1;
+            }
+
+            folderFx.fly(icon, from.x, from.y,
+                         from.x + (dx / len) * reach, from.y + (dy / len) * reach - reach * 0.25,
+                         dur, 0.15, false);
         }
 
         function isDashboardApp(desktopFile) {
@@ -1183,6 +1422,7 @@ Kicker.DashboardWindow {
             dashboardApps = pinned;
             saveDashboard();
             dashboardModel.reload();
+            folderRevision++;
         }
 
         // Serialize dashboardModel back to the apps array (handles folders)
@@ -1298,7 +1538,7 @@ Kicker.DashboardWindow {
             target: flatAllAppsRootModel
             function onRefreshed() {
                 for (var i = 0; i < flatAllAppsRootModel.count; i++) {
-                    if (flatAllAppsRootModel.labelForRow(i) === "All Applications") {
+                    if (flatAllAppsRootModel.labelForRow(i) === root.allAppsRowLabel) {
                         rootItem.dashAllAppsModel = flatAllAppsRootModel.modelForRow(i);
                         dashboardModel.reload();
                         return;
@@ -1377,8 +1617,11 @@ Kicker.DashboardWindow {
                 onClicked: {
                     var idx = dashContextMenu.folderIdx;
                     dashContextMenu.close();
+                    // No tile was clicked, so grow from the centre of the screen
                     folderPopup.originX = rootItem.width / 2;
                     folderPopup.originY = rootItem.height / 2;
+                    folderPopup.originW = root.iconSize * 0.85 + 8;
+                    folderPopup.originH = root.iconSize * 0.85 + 8;
                     rootItem.openFolderIndex = idx;
                     folderPopup.startRename();
                 }
@@ -1461,6 +1704,237 @@ Kicker.DashboardWindow {
             }
         }
 
+        // =============================================
+        //           FOLDER CHOREOGRAPHY FX
+        // =============================================
+        //
+        // Creating a folder, dropping an app into one, and pulling one back out
+        // all end in dashboardModel.reload(), which tears down and rebuilds
+        // every delegate. Motion therefore cannot live on the delegates alone —
+        // whatever is mid-animation is destroyed the instant the data changes.
+        //
+        // So the transition is split across two halves that meet in the middle:
+        //
+        //   1. This overlay carries the icon in root coordinates, above the
+        //      grid and unaffected by the rebuild. It is the thing the eye
+        //      follows across the cut.
+        //   2. The write is held back until the icon is nearly home (see
+        //      dashboardGrid.beginFolderFx), and the rebuilt delegate reads
+        //      dashboardGrid.fx* to know which arrival beat to play — a folder
+        //      springing into being, one swallowing an icon, or an ejected app
+        //      landing.
+        //
+        // Every piece scales off the caller's duration, so a 0 setting collapses
+        // the whole sequence to an instant write.
+        Item {
+            id: folderFx
+            anchors.fill: parent
+            z: 9000
+            visible: fxFlight.running || fxBurst.running
+            enabled: false
+
+            // Flight endpoints, in root coordinates and centred on the icon
+            property real fromX: 0
+            property real fromY: 0
+            property real toX: 0
+            property real toY: 0
+            property real endScale: 0.35
+            property int duration: 400
+
+            // Frosted plate that swells at the destination as the icon arrives —
+            // the folder's surface forming under it. Only for merges.
+            property bool plateEnabled: false
+
+            // Fraction of the flight after which the icon has effectively
+            // arrived. The delegates delay their arrival beat by this much so
+            // the two halves meet, even though the data changed up front.
+            readonly property real handoff: 0.72
+
+            // Sends `icon` from one point to another. Both points are centres in
+            // root coordinates. Purely decorative: the model has already been
+            // written by the time this runs, so an interrupted or never-started
+            // flight costs nothing but the animation.
+            function fly(icon, sx, sy, tx, ty, dur, endScl, withPlate) {
+                fxFlight.stop();
+                fxBurst.stop();
+
+                if (dur <= 0) {
+                    return;
+                }
+
+                fxIcon.source = icon || "";
+                folderFx.fromX = sx;
+                folderFx.fromY = sy;
+                folderFx.toX = tx;
+                folderFx.toY = ty;
+                folderFx.duration = dur;
+                folderFx.endScale = endScl;
+                folderFx.plateEnabled = withPlate;
+
+                fxPlate.x = tx - fxPlate.width / 2;
+                fxPlate.y = ty - fxPlate.height / 2;
+                fxRing.x = tx - fxRing.width / 2;
+                fxRing.y = ty - fxRing.height / 2;
+
+                fxFlight.start();
+            }
+
+            // The icon itself. x and y run on different curves so the path bows
+            // rather than tracking a straight line — the arc reads as thrown
+            // rather than slid.
+            Kirigami.Icon {
+                id: fxIcon
+                width: root.iconSize
+                height: root.iconSize
+                animated: false
+                opacity: 0
+                transformOrigin: Item.Center
+
+                layer.enabled: folderFx.visible
+                layer.effect: MultiEffect {
+                    shadowEnabled: true
+                    shadowColor: Qt.rgba(0, 0, 0, 0.55)
+                    shadowBlur: 0.8
+                    shadowVerticalOffset: Kirigami.Units.smallSpacing
+                    shadowHorizontalOffset: 0
+                }
+            }
+
+            // Glass surface swelling into place beneath the arriving icon
+            Kirigami.ShadowedRectangle {
+                id: fxPlate
+                width: root.iconSize * 0.85 + 8
+                height: width
+                radius: width / 5
+                color: colorWithAlpha(Kirigami.Theme.backgroundColor, 0.75)
+                border.width: 1
+                border.color: colorWithAlpha(Kirigami.Theme.textColor, 0.15)
+                shadow.size: Kirigami.Units.gridUnit
+                shadow.color: Qt.rgba(0, 0, 0, 0.35)
+                shadow.yOffset: Kirigami.Units.smallSpacing / 2
+                opacity: 0
+                scale: 0.3
+                transformOrigin: Item.Center
+                visible: folderFx.plateEnabled
+            }
+
+            // Shockwave marking the moment the two items become one
+            Rectangle {
+                id: fxRing
+                width: root.iconSize * 1.1
+                height: width
+                radius: width / 3
+                color: "transparent"
+                border.width: 2
+                border.color: Kirigami.Theme.highlightColor
+                opacity: 0
+                scale: 0.6
+                transformOrigin: Item.Center
+            }
+
+            ParallelAnimation {
+                id: fxFlight
+
+                // Horizontal settles early, vertical keeps travelling — the
+                // mismatch is what bends the path.
+                NumberAnimation {
+                    target: fxIcon; property: "x"
+                    from: folderFx.fromX - fxIcon.width / 2
+                    to: folderFx.toX - fxIcon.width / 2
+                    duration: folderFx.duration
+                    easing.type: Easing.OutQuint
+                }
+                NumberAnimation {
+                    target: fxIcon; property: "y"
+                    from: folderFx.fromY - fxIcon.height / 2
+                    to: folderFx.toY - fxIcon.height / 2
+                    duration: folderFx.duration
+                    easing.type: Easing.InOutCubic
+                }
+                // Winds up a touch before being drawn in
+                SequentialAnimation {
+                    NumberAnimation {
+                        target: fxIcon; property: "scale"
+                        from: 1.0; to: 1.18
+                        duration: Math.round(folderFx.duration * 0.28)
+                        easing.type: Easing.OutBack
+                        easing.overshoot: 2.4
+                    }
+                    NumberAnimation {
+                        target: fxIcon; property: "scale"
+                        to: folderFx.endScale
+                        duration: Math.round(folderFx.duration * 0.72)
+                        easing.type: Easing.InBack
+                        easing.overshoot: 1.1
+                    }
+                }
+                SequentialAnimation {
+                    NumberAnimation {
+                        target: fxIcon; property: "opacity"
+                        from: 0.0; to: 1.0
+                        duration: Math.round(folderFx.duration * 0.18)
+                    }
+                    PauseAnimation { duration: Math.round(folderFx.duration * 0.55) }
+                    NumberAnimation {
+                        target: fxIcon; property: "opacity"
+                        to: 0.0
+                        duration: Math.round(folderFx.duration * 0.27)
+                        easing.type: Easing.InCubic
+                    }
+                }
+                // Plate rises to meet the icon
+                SequentialAnimation {
+                    PauseAnimation { duration: Math.round(folderFx.duration * 0.35) }
+                    ParallelAnimation {
+                        NumberAnimation {
+                            target: fxPlate; property: "scale"
+                            from: 0.3; to: 1.0
+                            duration: Math.round(folderFx.duration * 0.65)
+                            easing.type: Easing.OutBack
+                            easing.overshoot: 2.0
+                        }
+                        NumberAnimation {
+                            target: fxPlate; property: "opacity"
+                            from: 0.0; to: folderFx.plateEnabled ? 0.9 : 0.0
+                            duration: Math.round(folderFx.duration * 0.4)
+                            easing.type: Easing.OutCubic
+                        }
+                    }
+                    NumberAnimation {
+                        target: fxPlate; property: "opacity"
+                        to: 0.0
+                        duration: Math.round(folderFx.duration * 0.3)
+                        easing.type: Easing.InCubic
+                    }
+                }
+
+                // Shockwave at touchdown, timed to meet the delegate's own
+                // arrival beat (which is delayed by the same fraction).
+                SequentialAnimation {
+                    PauseAnimation { duration: Math.round(folderFx.duration * folderFx.handoff) }
+                    ScriptAction { script: fxBurst.start() }
+                }
+            }
+
+            SequentialAnimation {
+                id: fxBurst
+                ParallelAnimation {
+                    NumberAnimation {
+                        target: fxRing; property: "scale"
+                        from: 0.6; to: 1.9
+                        duration: Math.round(folderFx.duration * 0.75)
+                        easing.type: Easing.OutQuint
+                    }
+                    NumberAnimation {
+                        target: fxRing; property: "opacity"
+                        from: 0.75; to: 0.0
+                        duration: Math.round(folderFx.duration * 0.75)
+                        easing.type: Easing.OutCubic
+                    }
+                }
+            }
+        }
+
         // Drag ghost — a lifted, softly-shadowed icon that follows the cursor
         Item {
             id: dragGhost
@@ -1522,7 +1996,7 @@ Kicker.DashboardWindow {
                 horizontalAlignment: Text.AlignHCenter
                 elide: Text.ElideRight
                 maximumLineCount: 1
-                font.pointSize: Kirigami.Theme.defaultFont.pointSize - 1
+                font.pointSize: root.scaledFont(Kirigami.Theme.defaultFont.pointSize - 1, root.dashboardFontScale)
                 anchors.horizontalCenter: parent.horizontalCenter
                 anchors.bottom: parent.bottom
                 anchors.bottomMargin: Kirigami.Units.smallSpacing
@@ -1702,6 +2176,10 @@ Kicker.DashboardWindow {
         Item {
             id: categoryRowContainer
             z: 3
+
+            // Vertical breathing room inside each pill, on top of the label's
+            // own implicitHeight. Shared so the pills stay the same height.
+            readonly property int pillPadding: Kirigami.Units.largeSpacing + Kirigami.Units.smallSpacing * 2
             anchors.horizontalCenter: parent.horizontalCenter
             anchors.bottom: contentArea.top
             anchors.bottomMargin: Kirigami.Units.largeSpacing * 2
@@ -1766,7 +2244,7 @@ Kicker.DashboardWindow {
             Rectangle {
                 id: dashboardCatBtn
                 width: dashCatLabel.implicitWidth + Kirigami.Units.largeSpacing * 3
-                height: dashCatLabel.implicitHeight + Kirigami.Units.largeSpacing
+                height: dashCatLabel.implicitHeight + categoryRowContainer.pillPadding
                 radius: height / 2
 
                 color: rootItem.showingDashboard
@@ -1789,7 +2267,7 @@ Kicker.DashboardWindow {
                     id: dashCatLabel
                     anchors.centerIn: parent
                     text: i18n("Dashboard")
-                    font.pointSize: Kirigami.Theme.defaultFont.pointSize - 0.5
+                    font.pointSize: root.scaledFont(Kirigami.Theme.defaultFont.pointSize - 0.5, root.categoryFontScale)
                     font.weight: rootItem.showingDashboard ? Font.DemiBold : Font.Normal
                     color: rootItem.showingDashboard
                         ? Kirigami.Theme.highlightedTextColor
@@ -1804,7 +2282,7 @@ Kicker.DashboardWindow {
 
                     onClicked: {
                         if (rootItem.showingDashboard) {
-                            root.selectCategory(0);
+                            root.selectDefaultCategory();
                         } else {
                             rootItem.showingDashboard = true;
                             rootItem.showingAllApps = false;
@@ -1819,7 +2297,7 @@ Kicker.DashboardWindow {
             Rectangle {
                 id: allAppsCatBtn
                 width: allAppsCatLabel.implicitWidth + Kirigami.Units.largeSpacing * 3
-                height: allAppsCatLabel.implicitHeight + Kirigami.Units.largeSpacing
+                height: allAppsCatLabel.implicitHeight + categoryRowContainer.pillPadding
                 radius: height / 2
 
                 color: rootItem.showingAllApps
@@ -1842,7 +2320,7 @@ Kicker.DashboardWindow {
                     id: allAppsCatLabel
                     anchors.centerIn: parent
                     text: i18n("All Apps")
-                    font.pointSize: Kirigami.Theme.defaultFont.pointSize - 0.5
+                    font.pointSize: root.scaledFont(Kirigami.Theme.defaultFont.pointSize - 0.5, root.categoryFontScale)
                     font.weight: rootItem.showingAllApps ? Font.DemiBold : Font.Normal
                     color: rootItem.showingAllApps
                         ? Kirigami.Theme.highlightedTextColor
@@ -1857,7 +2335,7 @@ Kicker.DashboardWindow {
 
                     onClicked: {
                         if (rootItem.showingAllApps) {
-                            root.selectCategory(0);
+                            root.selectDefaultCategory();
                         } else {
                             rootItem.showingDashboard = false;
                             rootItem.showingAllApps = true;
@@ -1877,8 +2355,8 @@ Kicker.DashboardWindow {
                     id: catBtn
 
                     readonly property string categoryLabel:
-                        model.display === "All Applications" ? i18n("Alphabetically")
-                        : model.display === "Recent Applications" ? i18n("Recent Apps")
+                        model.display === root.allAppsRowLabel ? i18n("Alphabetically")
+                        : model.display === root.recentAppsRowLabel ? i18n("Recent Apps")
                         : (model.display || "")
 
                     // RootModel emits a placeholder row between "All Applications"
@@ -1887,7 +2365,7 @@ Kicker.DashboardWindow {
                     visible: categoryLabel.trim().length > 0
 
                     width: catLabel.implicitWidth + Kirigami.Units.largeSpacing * 3
-                    height: catLabel.implicitHeight + Kirigami.Units.largeSpacing
+                    height: catLabel.implicitHeight + categoryRowContainer.pillPadding
                     radius: height / 2
 
                     color: categoryRow.currentCategory === index
@@ -1910,7 +2388,7 @@ Kicker.DashboardWindow {
                         id: catLabel
                         anchors.centerIn: parent
                         text: catBtn.categoryLabel
-                        font.pointSize: Kirigami.Theme.defaultFont.pointSize - 0.5
+                        font.pointSize: root.scaledFont(Kirigami.Theme.defaultFont.pointSize - 0.5, root.categoryFontScale)
                         font.weight: categoryRow.currentCategory === index ? Font.DemiBold : Font.Normal
                         color: categoryRow.currentCategory === index
                             ? Kirigami.Theme.highlightedTextColor
@@ -1924,7 +2402,11 @@ Kicker.DashboardWindow {
                         cursorShape: Qt.PointingHandCursor
 
                         onClicked: {
-                            root.selectCategory(categoryRow.currentCategory === index ? 0 : index);
+                            if (categoryRow.currentCategory === index) {
+                                root.selectDefaultCategory();
+                            } else {
+                                root.selectCategory(index);
+                            }
                         }
                     }
                 }
@@ -1944,6 +2426,17 @@ Kicker.DashboardWindow {
                 horizontalCenter: parent.horizontalCenter
                 verticalCenter: parent.verticalCenter
                 verticalCenterOffset: Kirigami.Units.gridUnit * 2
+            }
+
+            // The dashboard settles back a touch as a folder opens, the way One
+            // UI pushes the home screen away behind a folder. Paired with the
+            // dim, it puts the card on a plane in front of the grid instead of
+            // merely on top of it.
+            transform: Scale {
+                origin.x: contentArea.width / 2
+                origin.y: contentArea.height / 2
+                xScale: 1 - 0.05 * Math.min(1, folderPopup.openProgress)
+                yScale: 1 - 0.05 * Math.min(1, folderPopup.openProgress)
             }
 
         StackView {
@@ -2005,7 +2498,7 @@ Kicker.DashboardWindow {
 
                         PlasmaComponents.Label {
                             text: i18n("All Letters")
-                            font.pointSize: Kirigami.Theme.defaultFont.pointSize - 0.5
+                            font.pointSize: root.scaledFont(Kirigami.Theme.defaultFont.pointSize - 0.5, root.allAppsFontScale)
                             color: Kirigami.Theme.textColor
                             anchors.verticalCenter: parent.verticalCenter
                         }
@@ -2027,6 +2520,7 @@ Kicker.DashboardWindow {
 
                 ItemGridView {
                     id: allAppsGrid
+                    labelFontScale: root.allAppsFontScale
                     width: parent.width
                     height: allAppsColumn.gridHeight
                     anchors.horizontalCenter: parent.horizontalCenter
@@ -2043,6 +2537,13 @@ Kicker.DashboardWindow {
                     opacity: (rootItem.showingDashboard || rootItem.showingAllApps || root.showingRecent) ? 0 : 1
 
                     property var parentModel: null
+
+                    // Only the top level of the "Alphabetically" category lists
+                    // letters; every other category — and any letter you drill
+                    // into — lists apps, which keep the normal caption.
+                    groupLabels: parentModel === null
+                        && categoryRow.currentCategory >= 0
+                        && rootModel.labelForRow(categoryRow.currentCategory) === root.allAppsRowLabel
 
                     onItemChildActivated: index => {
                         var childModel = allAppsGrid.model.modelForRow(index);
@@ -2197,10 +2698,10 @@ Kicker.DashboardWindow {
             property var alphaModel: null
 
             function populate() {
-                // Find "All Applications" index in rootModel
+                // Find the all-apps row in rootModel
                 var idx = -1;
                 for (var i = 0; i < rootModel.count; i++) {
-                    if (rootModel.labelForRow(i) === "All Applications") {
+                    if (rootModel.labelForRow(i) === root.allAppsRowLabel) {
                         idx = i;
                         break;
                     }
@@ -2302,10 +2803,10 @@ Kicker.DashboardWindow {
                                         bottomMargin: Kirigami.Units.smallSpacing
                                     }
                                     text: modelData.letter
-                                    font.pointSize: Kirigami.Theme.defaultFont.pointSize + 4
+                                    font.pointSize: root.scaledFont(Kirigami.Theme.defaultFont.pointSize + 10, root.allAppsFontScale)
                                     font.weight: Font.Bold
                                     color: Kirigami.Theme.textColor
-                                    opacity: 0.7
+                                    opacity: 0.85
                                 }
 
                                 Rectangle {
@@ -2325,6 +2826,7 @@ Kicker.DashboardWindow {
                             // App grid for this letter
                             ItemGridView {
                                 id: letterGrid
+                                labelFontScale: root.allAppsFontScale
                                 width: parent.width
                                 // Calculate height based on number of rows needed
                                 height: Math.ceil(modelData.model.count / Math.floor(width / root.cellSize)) * root.cellSize
@@ -2370,23 +2872,163 @@ animatedEntrance: true
             property int currentPage: 0
             property int pageCount: Math.max(1, Math.ceil(dashboardModel.count / root.itemsPerPage))
 
+            // Where the user has asked to end up. currentPage is walked toward
+            // it one leg at a time, so a request landing mid-transition never
+            // tears down the leg already playing — it just extends the walk.
+            property int targetPage: 0
+
+            // Whether that walk visits every page on the way. A scroll is a
+            // relative gesture, so it does; the page dots are random access, so
+            // they go straight there.
+            property bool walkPages: false
+
+            // Leg duration multiplier. Shortens as the backlog grows, so a fast
+            // scroll shows every page it passes through without turning into a
+            // long queue of full-length transitions. Recomputed once per leg
+            // rather than bound to the backlog, so a notch arriving mid-leg
+            // cannot re-time the animation that is already playing.
+            property real pageSpeed: 1.0
+
+            // How far the grid drifts sideways during a page change. Purely
+            // cosmetic — see the note on goToPage.
+            readonly property real pageSlideDistance: Kirigami.Units.gridUnit * 4
+
+            // The grid flows left-to-right, so its scroll axis is *vertical*:
+            // page N is the same column of items, dashRows further down. Paging
+            // by contentX therefore had nowhere to go — it slid the whole grid
+            // out of its own clip rect, which is why every page past the first
+            // came up blank and unclickable.
+            //
+            // The horizontal read is kept as a shared-axis-X transition (the
+            // transform below) rather than by reflowing top-to-bottom: a
+            // column-major grid would break reading order — the alphabetical
+            // run would go down each column instead of across each row — and
+            // every index-based drag, folder and reorder path in here assumes
+            // model index == row-major position.
+            // Jump straight to a page — random access, for the page dots.
             function goToPage(page) {
-                page = Math.max(0, Math.min(page, pageCount - 1));
-                if (page === currentPage && !pageAnimation.running) return;
-                currentPage = page;
+                requestPage(page, false);
+            }
+
+            // One page along from wherever the grid is heading. Wheel navigation
+            // goes through this rather than goToPage(currentPage ± 1): during a
+            // transition currentPage is already the destination of the leg in
+            // flight, so counting from it would make every notch in a burst ask
+            // for the same page and the burst would move one page in total.
+            function stepPage(delta) {
+                requestPage(targetPage + delta, true);
+            }
+
+            function requestPage(page, walk) {
+                targetPage = Math.max(0, Math.min(page, pageCount - 1));
+                walkPages = walk;
+                // A leg in flight picks the next one up itself when it lands.
+                if (!pageAnimation.running) {
+                    startNextLeg();
+                }
+            }
+
+            // Advances one page toward targetPage, or straight to it when the
+            // request was random access. Arriving is what ends the walk: this
+            // is a no-op once there is nothing left to travel.
+            function startNextLeg() {
+                if (targetPage === currentPage) return;
+                var dir = targetPage > currentPage ? 1 : -1;
+                var next = walkPages ? currentPage + dir : targetPage;
+                // Pages still to come after this one. A lone page change scores 0
+                // and runs at full length; a backlog shortens each leg toward a
+                // floor that still leaves every page a few frames on screen.
+                var remaining = Math.abs(targetPage - next);
+                pageSpeed = Math.max(0.45, 1 - 0.2 * remaining);
+                currentPage = next;
                 dashboardGrid.cancelFlick();
-                pageAnimation.stop();
-                pageAnimation.from = dashboardGrid.contentX;
-                pageAnimation.to = page * dashboardGrid.width;
+                pageSlideOut.to = dir > 0 ? -pageSlideDistance : pageSlideDistance;
+                pageSlideIn.from = dir > 0 ? pageSlideDistance : -pageSlideDistance;
                 pageAnimation.start();
             }
 
-            NumberAnimation {
+            // Re-applies the page offset without animating. A folder edit or an
+            // "Add to Dashboard" rebuilds the model, which collapses contentY
+            // back to the top, and a resize changes how many rows fit on a page
+            // — in both cases the dots would otherwise keep claiming a page the
+            // grid is no longer showing.
+            function syncPageOffset() {
+                currentPage = Math.max(0, Math.min(currentPage, pageCount - 1));
+                targetPage = Math.max(0, Math.min(targetPage, pageCount - 1));
+                if (pageAnimation.running) return;
+                dashboardGrid.contentY = currentPage * dashboardGrid.height;
+            }
+
+            function resetToFirstPage() {
+                // Both land before the stop: stopping starts the next leg, and
+                // it has to find nothing left to walk to.
+                currentPage = 0;
+                targetPage = 0;
+                pageAnimation.stop();
+                pageSpeed = 1.0;
+                pageSlide.x = 0;
+                dashboardGrid.opacity = 1;
+                dashboardGrid.contentY = 0;
+            }
+
+            SequentialAnimation {
                 id: pageAnimation
-                target: dashboardGrid
-                property: "contentX"
-                duration: root.animDuration * 1.1
-                easing.type: Easing.OutQuint
+
+                // Outgoing page leaves in the direction of travel and dissolves.
+                ParallelAnimation {
+                    NumberAnimation {
+                        id: pageSlideOut
+                        target: pageSlide; property: "x"
+                        duration: Math.round(root.animDuration * 0.45 * dashboardView.pageSpeed)
+                        easing.type: Easing.InCubic
+                    }
+                    NumberAnimation {
+                        target: dashboardGrid; property: "opacity"
+                        to: 0
+                        duration: Math.round(root.animDuration * 0.4 * dashboardView.pageSpeed)
+                        easing.type: Easing.InCubic
+                    }
+                }
+
+                // The page change proper. Deliberately parked here, at zero
+                // opacity: crossing into a page whose delegates do not exist yet
+                // builds a screenful of them in one frame, and this is the one
+                // moment in the transition where that costs nothing to look at.
+                ScriptAction {
+                    script: {
+                        dashboardGrid.contentY = dashboardView.currentPage * dashboardGrid.height;
+                        pageSlide.x = pageSlideIn.from;
+                    }
+                }
+
+                // Incoming page arrives from the opposite side.
+                ParallelAnimation {
+                    NumberAnimation {
+                        id: pageSlideIn
+                        target: pageSlide; property: "x"
+                        to: 0
+                        duration: Math.round(root.animDuration * 0.75 * dashboardView.pageSpeed)
+                        easing.type: Easing.OutQuint
+                    }
+                    NumberAnimation {
+                        target: dashboardGrid; property: "opacity"
+                        from: 0; to: 1
+                        duration: Math.round(root.animDuration * 0.6 * dashboardView.pageSpeed)
+                        easing.type: Easing.OutCubic
+                    }
+                }
+
+                // Fires on interruption as well as completion — a page change
+                // cut short must never strand the grid faded out and offset to
+                // the side. The walk continues from here rather than from
+                // onFinished so the two are in a guaranteed order (restore, then
+                // carry on) without depending on which of stopped/finished Qt
+                // emits first.
+                onStopped: {
+                    pageSlide.x = 0;
+                    dashboardGrid.opacity = 1;
+                    dashboardView.startNextLeg();
+                }
             }
 
             // Close launcher when clicking empty space in the dashboard.
@@ -2439,6 +3081,27 @@ animatedEntrance: true
                 snapMode: GridView.NoSnap
                 interactive: false
 
+                // Sideways drift of a page change. Cosmetic only — the page
+                // itself is a contentY jump. See dashboardView.goToPage.
+                transform: Translate { id: pageSlide }
+
+                // Pads the content out to a whole number of pages. A part-filled
+                // last page is shorter than one screenful, so without this the
+                // Flickable clamps contentY on the next layout pass and the last
+                // page slides back up onto the previous one's rows.
+                footer: Item {
+                    width: dashboardGrid.width
+                    height: Math.max(0, (dashboardView.pageCount * root.dashRows
+                                         - Math.ceil(dashboardGrid.count / root.columns))
+                                        * root.cellSize)
+                }
+
+                // Both of these land mid-rebuild/mid-resize, when the geometry
+                // they need is not settled yet; callLater also collapses the
+                // count churn of a full model reload into a single sync.
+                onCountChanged: Qt.callLater(dashboardView.syncPageOffset)
+                onHeightChanged: Qt.callLater(dashboardView.syncPageOffset)
+
                 property int dragFromIndex: -1
                 property int dragStartIndex: -1     // where the drag began, to detect a real reorder
                 // Grid-level "a drag is active" flag. The dragged item is tracked
@@ -2448,6 +3111,62 @@ animatedEntrance: true
                 property bool dragActive: false
                 property int hoverTargetIndex: -1  // for folder merge highlight
                 property bool readyToMerge: false   // armed after holding over target 600ms
+
+                // --- Folder choreography hand-off ---
+                // A folder write rebuilds every delegate, so the arrival beat is
+                // addressed by index and picked up in Component.onCompleted. Set
+                // these immediately before the write; fxClearTimer takes them
+                // down afterwards so a later, unrelated reload cannot replay it.
+                property int fxBirthIndex: -1    // a folder springs into being here
+                property int fxAbsorbIndex: -1   // a folder here swallows an icon
+                property int fxLandIndex: -1     // an app ejected from a folder lands here
+                property int fxDuration: 0
+                property int fxDelay: 0          // held back until the icon lands
+
+                // Arms the arrival beat, then performs the write. The write is
+                // called directly rather than being queued behind the animation:
+                // persisting the user's change must not depend on an animation
+                // finishing, or an interrupted flight silently loses the edit.
+                // The delegates instead wait out fxDelay before they animate.
+                function beginFolderFx(birthIdx, absorbIdx, landIdx, dur, write) {
+                    fxBirthIndex = birthIdx;
+                    fxAbsorbIndex = absorbIdx;
+                    fxLandIndex = landIdx;
+                    fxDuration = dur;
+                    fxDelay = Math.round(dur * folderFx.handoff);
+                    write();
+                    if (dur > 0) {
+                        fxClearTimer.restart();
+                    } else {
+                        fxClearTimer.stop();
+                        clearFolderFx();
+                    }
+                }
+
+                function clearFolderFx() {
+                    fxBirthIndex = -1;
+                    fxAbsorbIndex = -1;
+                    fxLandIndex = -1;
+                }
+
+                // Lives on the grid rather than the delegate's MouseArea: a merge
+                // defers this until the flight lands, by which point the delegate
+                // that started the drag may already be gone.
+                function endDrag() {
+                    readyToMerge = false;
+                    hoverTargetIndex = -1;
+                    dragFromIndex = -1;
+                    dragStartIndex = -1;
+                    dragActive = false;
+                }
+
+                Timer {
+                    id: fxClearTimer
+                    // Must outlast the held-back start as well as the beat itself
+                    interval: Math.max(1, dashboardGrid.fxDelay + dashboardGrid.fxDuration * 2)
+                    repeat: false
+                    onTriggered: dashboardGrid.clearFolderFx()
+                }
 
                 // Entrance animation trigger
                 property bool _entranceTriggered: false
@@ -2489,12 +3208,150 @@ animatedEntrance: true
                         NumberAnimation { duration: root.hoverEffectDuration; easing.type: Easing.OutBack; easing.overshoot: 2.0 }
                     }
 
+                    // Folder choreography works on its own transform so it can
+                    // overlap the hover scale above without the two clobbering
+                    // each other's bindings.
+                    transform: [
+                        Scale {
+                            id: fxDelegateScale
+                            origin.x: dashDelegate.width / 2
+                            origin.y: dashDelegate.height / 2
+                            xScale: 1.0
+                            yScale: 1.0
+                        },
+                        Rotation {
+                            id: fxDelegateRotation
+                            origin.x: dashDelegate.width / 2
+                            origin.y: dashDelegate.height / 2
+                            angle: 0
+                        }
+                    ]
+
+                    // Puts the delegate back to its resting, fully visible state.
+                    // The folder beats below hide it on the way in, and this is
+                    // what guarantees it always comes back.
+                    function restoreFromFx() {
+                        dashDelegate.opacity = 1;
+                        fxDelegateScale.xScale = 1.0;
+                        fxDelegateScale.yScale = 1.0;
+                        fxDelegateRotation.angle = 0;
+                    }
+
                     Component.onCompleted: {
                         // Delegates created after entrance already triggered (e.g. scrolling to page 2+)
                         // should appear immediately instead of staying invisible
                         if (dashboardGrid._entranceTriggered) {
                             dashDelegate.entranceComplete = true;
                             dashDelegate.opacity = 1;
+                        }
+                        // This delegate is the result of a folder operation that
+                        // just rebuilt the grid — play its half of the transition.
+                        // The two that arrive from nothing are put into their
+                        // starting state here rather than relying on the
+                        // animation's `from`, which would otherwise show one
+                        // frame at full size before it takes hold.
+                        if (dashboardGrid.fxBirthIndex === dashDelegate.itemIndex) {
+                            dashDelegate.opacity = 0;
+                            fxDelegateScale.xScale = 0.25;
+                            fxDelegateScale.yScale = 0.25;
+                            folderBirthAnim.start();
+                        } else if (dashboardGrid.fxAbsorbIndex === dashDelegate.itemIndex) {
+                            folderAbsorbAnim.start();
+                        } else if (dashboardGrid.fxLandIndex === dashDelegate.itemIndex) {
+                            dashDelegate.opacity = 0;
+                            fxDelegateScale.xScale = 0.4;
+                            fxDelegateScale.yScale = 0.4;
+                            itemLandAnim.start();
+                        }
+                    }
+
+                    // A folder coming into existence: bursts out oversized and
+                    // overshoots down into place, with a shake as it settles.
+                    // Held back until the flying icon reaches it — the write
+                    // already happened, so this waits for the picture to agree.
+                    SequentialAnimation {
+                        id: folderBirthAnim
+                        // These beats start the delegate hidden, so whatever
+                        // happens they must not be able to leave it that way —
+                        // onStopped fires on interruption as well as completion.
+                        onStopped: dashDelegate.restoreFromFx()
+                        PauseAnimation { duration: dashboardGrid.fxDelay }
+                        ParallelAnimation {
+                        NumberAnimation {
+                            targets: [fxDelegateScale]
+                            properties: "xScale,yScale"
+                            from: 0.25; to: 1.0
+                            duration: Math.round(dashboardGrid.fxDuration * 1.15)
+                            easing.type: Easing.OutBack
+                            easing.overshoot: 3.2
+                        }
+                        SequentialAnimation {
+                            NumberAnimation {
+                                target: fxDelegateRotation; property: "angle"
+                                from: -14; to: 7
+                                duration: Math.round(dashboardGrid.fxDuration * 0.45)
+                                easing.type: Easing.OutCubic
+                            }
+                            NumberAnimation {
+                                target: fxDelegateRotation; property: "angle"
+                                to: 0
+                                duration: Math.round(dashboardGrid.fxDuration * 0.7)
+                                easing.type: Easing.OutBack
+                                easing.overshoot: 2.6
+                            }
+                        }
+                        NumberAnimation {
+                            target: dashDelegate; property: "opacity"
+                            from: 0.0; to: 1.0
+                            duration: Math.round(dashboardGrid.fxDuration * 0.4)
+                            easing.type: Easing.OutCubic
+                        }
+                        }
+                    }
+
+                    // An existing folder swallowing an icon: a squash-and-swell
+                    // gulp, so the folder visibly reacts to what it just took in.
+                    SequentialAnimation {
+                        id: folderAbsorbAnim
+                        onStopped: dashDelegate.restoreFromFx()
+                        PauseAnimation { duration: dashboardGrid.fxDelay }
+                        NumberAnimation {
+                            targets: [fxDelegateScale]
+                            properties: "xScale,yScale"
+                            from: 1.0; to: 0.82
+                            duration: Math.round(dashboardGrid.fxDuration * 0.22)
+                            easing.type: Easing.OutCubic
+                        }
+                        NumberAnimation {
+                            targets: [fxDelegateScale]
+                            properties: "xScale,yScale"
+                            to: 1.0
+                            duration: Math.round(dashboardGrid.fxDuration * 0.78)
+                            easing.type: Easing.OutBack
+                            easing.overshoot: 3.6
+                        }
+                    }
+
+                    // An app pulled back out of a folder, arriving on the grid.
+                    SequentialAnimation {
+                        id: itemLandAnim
+                        onStopped: dashDelegate.restoreFromFx()
+                        PauseAnimation { duration: dashboardGrid.fxDelay }
+                        ParallelAnimation {
+                            NumberAnimation {
+                                targets: [fxDelegateScale]
+                                properties: "xScale,yScale"
+                                from: 0.4; to: 1.0
+                                duration: Math.round(dashboardGrid.fxDuration * 1.05)
+                                easing.type: Easing.OutBack
+                                easing.overshoot: 2.8
+                            }
+                            NumberAnimation {
+                                target: dashDelegate; property: "opacity"
+                                from: 0.0; to: 1.0
+                                duration: Math.round(dashboardGrid.fxDuration * 0.45)
+                                easing.type: Easing.OutCubic
+                            }
                         }
                     }
 
@@ -2656,7 +3513,7 @@ animatedEntrance: true
                             horizontalAlignment: Text.AlignHCenter
                             elide: Text.ElideRight
                             maximumLineCount: 1
-                            font.pointSize: Kirigami.Theme.defaultFont.pointSize - 1
+                            font.pointSize: root.scaledFont(Kirigami.Theme.defaultFont.pointSize - 1, root.dashboardFontScale)
                             anchors.horizontalCenter: parent.horizontalCenter
                         }
                     }
@@ -2667,18 +3524,39 @@ animatedEntrance: true
                         visible: dashDelegate.isFolder
                         anchors.centerIn: parent
                         spacing: 2
-                        opacity: (dashboardGrid.dragActive && dashboardGrid.dragFromIndex === dashDelegate.itemIndex) ? 0.0 : 1.0
-                        Behavior on opacity { NumberAnimation { duration: root.hoverEffectDuration } }
+
+                        // Hidden while dragged, as app tiles are — and handed off
+                        // to the popup while this folder is the one open: the card
+                        // has taken this tile's place, so leaving it on screen
+                        // would show the same folder twice. Tracked with the
+                        // popup's own progress so it comes back exactly as the
+                        // card collapses back onto it.
+                        readonly property bool handedToPopup: folderPopup.visible
+                                                              && folderPopup.displayedFolderIndex === dashDelegate.itemIndex
+                        opacity: {
+                            if (dashboardGrid.dragActive && dashboardGrid.dragFromIndex === dashDelegate.itemIndex) return 0.0;
+                            if (handedToPopup) return Math.max(0, 1 - folderPopup.openProgress * 2.5);
+                            return 1.0;
+                        }
+                        Behavior on opacity {
+                            enabled: !folderContent.handedToPopup
+                            NumberAnimation { duration: root.hoverEffectDuration }
+                        }
 
                         // Mini-grid preview (2x2 icons) — same outer size as app icon for alignment
                         Item {
+                            id: folderPreviewBox
                             width: root.iconSize
                             height: root.iconSize
                             anchors.horizontalCenter: parent.horizontalCenter
 
+                            // The square the popup grows out of, published so the
+                            // click handler can hand the popup an exact rect
+                            readonly property real plateSize: root.iconSize * 0.85 + 8
+
                             Rectangle {
-                                width: root.iconSize * 0.85 + 8
-                                height: root.iconSize * 0.85 + 8
+                                width: folderPreviewBox.plateSize
+                                height: folderPreviewBox.plateSize
                                 anchors.centerIn: parent
                                 radius: width / 5
                                 color: Kirigami.Theme.backgroundColor
@@ -2719,7 +3597,7 @@ animatedEntrance: true
                             horizontalAlignment: Text.AlignHCenter
                             elide: Text.ElideRight
                             maximumLineCount: 1
-                            font.pointSize: Kirigami.Theme.defaultFont.pointSize - 1
+                            font.pointSize: root.scaledFont(Kirigami.Theme.defaultFont.pointSize - 1, root.dashboardFontScale)
                             anchors.horizontalCenter: parent.horizontalCenter
                         }
                     }
@@ -2777,39 +3655,75 @@ animatedEntrance: true
 
                         onReleased: mouse => {
                             folderMergeTimer.stop();
+                            // Reset up front: the merge below rebuilds the grid and
+                            // destroys this delegate along with the MouseArea running
+                            // this handler, so trailing statements may never run.
+                            var wasDragging = dragging;
+                            pressX = -1;
+                            pressY = -1;
 
-                            if (dragging) {
+                            if (wasDragging) {
                                 dragging = false;
                                 dragGhost.visible = false;
 
                                 if (dashboardGrid.readyToMerge && dashboardGrid.hoverTargetIndex !== -1
                                     && dashboardGrid.hoverTargetIndex !== dashboardGrid.dragFromIndex) {
-                                    // Held over a target long enough — merge into a folder
-                                    rootItem.createFolder(dashboardGrid.dragFromIndex, dashboardGrid.hoverTargetIndex);
-                                } else if (dashboardGrid.dragFromIndex !== dashboardGrid.dragStartIndex) {
-                                    // Reordered live during the drag — persist the new order
-                                    rootItem.syncModelToConfig();
-                                }
+                                    // Held over a target long enough — merge into a folder.
+                                    var plan = rootItem.planCreateFolder(dashboardGrid.dragFromIndex,
+                                                                         dashboardGrid.hoverTargetIndex);
+                                    dashboardGrid.endDrag();
+                                    if (plan) {
+                                        var dur = plan.isNew ? root.folderCreateDuration : root.folderAddDuration;
+                                        var ghostX = dragGhost.x + dragGhost.width / 2;
+                                        var ghostY = dragGhost.y + dragGhost.height / 2;
+                                        var to = rootItem.cellCentre(dashboardGrid, plan.folderIndex);
 
-                                dashboardGrid.readyToMerge = false;
-                                dashboardGrid.hoverTargetIndex = -1;
-                                dashboardGrid.dragFromIndex = -1;
-                                dashboardGrid.dragStartIndex = -1;
-                                dashboardGrid.dragActive = false;
+                                        // Flight first: it is decoration and touches
+                                        // nothing the write needs, and starting it here
+                                        // means it still plays even though the write
+                                        // below tears this delegate down mid-handler.
+                                        folderFx.fly(dragGhost.iconSource, ghostX, ghostY,
+                                                     to.x, to.y, dur, 0.4, true);
+
+                                        // The new folder is held invisible for the length
+                                        // of the flight by fxDelay, so it still reads as
+                                        // arriving with the icon rather than ahead of it.
+                                        dashboardGrid.beginFolderFx(
+                                            plan.isNew ? plan.folderIndex : -1,
+                                            plan.isNew ? -1 : plan.folderIndex,
+                                            -1, dur,
+                                            function() { rootItem.commitFolderPlan(plan); });
+                                    }
+                                } else {
+                                    // Reordered live during the drag — persist the new
+                                    // order. Drag state cleared first, for the same
+                                    // reason as above.
+                                    var reordered = dashboardGrid.dragFromIndex !== dashboardGrid.dragStartIndex;
+                                    dashboardGrid.endDrag();
+                                    if (reordered) {
+                                        rootItem.syncModelToConfig();
+                                    }
+                                }
                             } else if (mouse.button === Qt.LeftButton) {
                                 if (dashDelegate.isFolder) {
-                                    // Remember where this folder sits so the popup
-                                    // can spring open from it (shared-element feel)
-                                    var fc = dashDelegate.mapToItem(rootItem, dashDelegate.width / 2, dashDelegate.height / 2);
+                                    // Hand the popup this tile's preview square —
+                                    // its centre and its size — so the card can
+                                    // start out as exactly this tile and grow out
+                                    // of it. Measured from the preview box rather
+                                    // than the whole cell, which includes the
+                                    // label and would put the origin too low.
+                                    var fc = folderPreviewBox.mapToItem(rootItem,
+                                                                        folderPreviewBox.width / 2,
+                                                                        folderPreviewBox.height / 2);
                                     folderPopup.originX = fc.x;
                                     folderPopup.originY = fc.y;
+                                    folderPopup.originW = folderPreviewBox.plateSize;
+                                    folderPopup.originH = folderPreviewBox.plateSize;
                                     rootItem.openFolderIndex = dashDelegate.itemIndex;
                                 } else {
                                     launchAppFromItem(model.desktopFile, dashDelegate);
                                 }
                             }
-                            pressX = -1;
-                            pressY = -1;
                         }
 
                         onPositionChanged: mouse => {
@@ -2916,10 +3830,10 @@ animatedEntrance: true
                     // Require at least 120 units (one standard notch) to change page
                     if (wheelAccum >= 120) {
                         wheelAccum = 0;
-                        dashboardView.goToPage(dashboardView.currentPage - 1);
+                        dashboardView.stepPage(-1);
                     } else if (wheelAccum <= -120) {
                         wheelAccum = 0;
-                        dashboardView.goToPage(dashboardView.currentPage + 1);
+                        dashboardView.stepPage(1);
                     }
                 }
             }
@@ -3009,60 +3923,99 @@ animatedEntrance: true
             property int lastOpenedFolderIndex: -1
             property int displayedFolderIndex: folderPopupOpen ? rootItem.openFolderIndex : lastOpenedFolderIndex
 
-            // Where the card should grow from / collapse into — set to the
-            // opened folder's on-screen centre so the popup reads as that folder
-            // expanding (a shared-element transition). Defaults to screen centre.
+            // The on-screen rect of the folder tile's preview square, in this
+            // item's coordinates. The card literally starts life as that square
+            // and travels to the centre while growing, One UI style, so the tile
+            // and the open folder read as the same object. Defaults to a small
+            // box at the screen centre for openings with no tile to come from
+            // (e.g. rename straight after a folder is created).
             property real originX: width / 2
             property real originY: height / 2
+            property real originW: root.iconSize * 0.85 + 8
+            property real originH: root.iconSize * 0.85 + 8
 
-            // Drives the staggered pop-in of the folder's app icons
-            property bool contentEntranceTriggered: false
+            // 0 = collapsed onto the folder tile, 1 = the open, centred card.
+            // Everything about the transition — position, scale, dim, content
+            // fade, the tile's own disappearance — is derived from this one
+            // value, so the beats can never drift out of step with each other.
+            property real openProgress: 0
+
+            // Card contents trail the container, as One UI does: the panel
+            // establishes itself first and the folder's guts arrive into it.
+            readonly property real contentProgress: Math.max(0, Math.min(1, (openProgress - 0.3) / 0.5))
+
+            // True only once the card has finished springing open, so the size
+            // Behaviors engage for genuine content changes and nothing else.
+            // Testing folderOpenAnim.running instead raced: the size bindings
+            // can re-evaluate on folderPopupOpen before start() has been called,
+            // which let the opening frame animate as if it were a resize.
+            property bool sizeSettled: false
 
             onFolderPopupOpenChanged: {
                 if (folderPopupOpen) {
                     lastOpenedFolderIndex = rootItem.openFolderIndex;
-                    contentEntranceTriggered = false;
+                    sizeSettled = false;
+                    // Both animations drive openProgress, so whichever is in
+                    // flight has to yield before the other takes over —
+                    // otherwise a fast reopen leaves two writers fighting.
+                    folderCloseAnim.stop();
                     folderOpenAnim.start();
-                    // Defer one cycle so the freshly-created icon delegates exist
-                    // before their entrance is armed.
-                    Qt.callLater(function() { folderPopup.contentEntranceTriggered = true; });
                 } else {
-                    // Keep the icons visible while the card collapses — resetting
-                    // the entrance here made the folder look empty mid-close.
+                    // The icons need no teardown of their own: contentProgress
+                    // follows openProgress down, so they dissolve back into the
+                    // tile as part of the same collapse.
+                    sizeSettled = false;
+                    folderOpenAnim.stop();
                     folderCloseAnim.start();
                 }
             }
 
-            // Card springs open from the folder's position with a settle; closing
-            // collapses back toward it, quicker and clean so dismissal feels snappy
-            ParallelAnimation {
+            // The card unfolds out of the tile and glides to the centre; closing
+            // rewinds the same path, faster and without the overshoot so
+            // dismissal feels decisive rather than bouncy.
+            NumberAnimation {
                 id: folderOpenAnim
-                NumberAnimation { target: folderDimBg; property: "opacity"; from: 0; to: 0.45; duration: root.folderPopupDuration; easing.type: Easing.OutCubic }
-                NumberAnimation {
-                    target: folderCardScale; property: "xScale"
-                    from: 0.35; to: 1.0
-                    duration: root.folderPopupDuration * 1.4
-                    easing.type: Easing.OutBack
-                    easing.overshoot: 1.25
-                }
-                NumberAnimation {
-                    target: folderCardScale; property: "yScale"
-                    from: 0.35; to: 1.0
-                    duration: root.folderPopupDuration * 1.4
-                    easing.type: Easing.OutBack
-                    easing.overshoot: 1.25
-                }
-                NumberAnimation { target: folderCard; property: "opacity"; from: 0; to: 1.0; duration: root.folderPopupDuration * 0.7; easing.type: Easing.OutCubic }
+                target: folderPopup; property: "openProgress"
+                from: 0; to: 1
+                duration: root.folderPopupDuration * 1.5
+                easing.type: Easing.OutBack
+                easing.overshoot: 0.9
+                onFinished: folderPopup.sizeSettled = true
             }
 
-            ParallelAnimation {
+            NumberAnimation {
                 id: folderCloseAnim
-                NumberAnimation { target: folderDimBg; property: "opacity"; from: 0.45; to: 0; duration: root.folderPopupDuration * 0.8; easing.type: Easing.InCubic }
-                NumberAnimation { target: folderCardScale; property: "xScale"; from: 1.0; to: 0.6; duration: root.folderPopupDuration * 0.7; easing.type: Easing.InCubic }
-                NumberAnimation { target: folderCardScale; property: "yScale"; from: 1.0; to: 0.6; duration: root.folderPopupDuration * 0.7; easing.type: Easing.InCubic }
-                NumberAnimation { target: folderCard; property: "opacity"; from: 1.0; to: 0; duration: root.folderPopupDuration * 0.7; easing.type: Easing.InCubic }
+                target: folderPopup; property: "openProgress"
+                to: 0
+                duration: root.folderPopupDuration * 0.85
+                easing.type: Easing.InCubic
                 onFinished: folderPopup.lastOpenedFolderIndex = -1
             }
+
+            // Card kicks back when an app is torn out of it — the container
+            // reacting to losing something, rather than silently reflowing.
+            // Deliberately on its own Scale node: the open/close transform is
+            // bound to openProgress, and an animation writing to those same
+            // properties would break the binding for good.
+            SequentialAnimation {
+                id: folderCardRecoil
+                NumberAnimation {
+                    targets: [folderCardRecoilScale]
+                    properties: "xScale,yScale"
+                    from: 1.0; to: 1.06
+                    duration: Math.round(root.folderRemoveDuration * 0.25)
+                    easing.type: Easing.OutCubic
+                }
+                NumberAnimation {
+                    targets: [folderCardRecoilScale]
+                    properties: "xScale,yScale"
+                    to: 1.0
+                    duration: Math.round(root.folderRemoveDuration * 0.75)
+                    easing.type: Easing.OutBack
+                    easing.overshoot: 3.0
+                }
+            }
+
 
             function startRename() {
                 folderNameEdit.readOnly = false;
@@ -3075,7 +4028,9 @@ animatedEntrance: true
                 id: folderDimBg
                 anchors.fill: parent
                 color: "black"
-                opacity: 0
+                // Leads the card slightly so the backdrop has already receded
+                // by the time the panel arrives at the centre
+                opacity: 0.45 * Math.min(1, folderPopup.openProgress * 1.6)
 
                 MouseArea {
                     anchors.fill: parent
@@ -3091,8 +4046,41 @@ animatedEntrance: true
                 anchors.centerIn: parent
                 width: Math.min(parent.width * 0.5, folderGrid.columns * root.cellSize + Kirigami.Units.largeSpacing * 4)
                 height: folderNameEdit.height + folderGrid.height + Kirigami.Units.largeSpacing * 4
-                radius: 22
+
+                // Squircle-to-panel morph. The card is scaled down at the start
+                // of the transition, which shrinks the drawn radius too, so the
+                // collapsed value is pre-divided by that scale: width/5 rendered
+                // through collapsedXScale comes out as the tile's own plate
+                // radius (plateSize/5), and it eases to a flat 22 as it opens.
+                radius: {
+                    var collapsed = Math.min(width, height) / 5;
+                    return 22 + (collapsed - 22) * (1 - Math.min(1, folderPopup.openProgress));
+                }
                 color: colorWithAlpha(Kirigami.Theme.backgroundColor, 0.85)
+
+                // The card only resizes while it is already open — when an app
+                // joins or leaves the folder — so it stretches to its new shape
+                // instead of snapping. Held off during the open/close spring,
+                // which is already carrying its own scale.
+                readonly property bool resizeAnimated: root.folderRemoveDuration > 0
+                                                       && folderPopup.folderPopupOpen
+                                                       && folderPopup.sizeSettled
+                Behavior on width {
+                    enabled: folderCard.resizeAnimated
+                    NumberAnimation {
+                        duration: root.folderRemoveDuration
+                        easing.type: Easing.OutBack
+                        easing.overshoot: 1.4
+                    }
+                }
+                Behavior on height {
+                    enabled: folderCard.resizeAnimated
+                    NumberAnimation {
+                        duration: root.folderRemoveDuration
+                        easing.type: Easing.OutBack
+                        easing.overshoot: 1.4
+                    }
+                }
 
                 // Glass edge + a soft cast shadow lift the card off the backdrop
                 border.width: 1
@@ -3102,18 +4090,45 @@ animatedEntrance: true
                 shadow.yOffset: Kirigami.Units.smallSpacing * 1.5
 
                 visible: folderPopup.visible
-                opacity: 0
+                // Only the panel itself fades, and early — by a third of the way
+                // in it is solid and the rest of the move is pure geometry.
+                opacity: Math.min(1, folderPopup.openProgress * 3)
 
-                // Grows from / collapses into the folder's on-screen position.
-                // Origin is the folder centre expressed in this card's local
-                // coordinates, clamped so it always lands inside the card.
-                transform: Scale {
-                    id: folderCardScale
-                    origin.x: Math.max(0, Math.min(folderCard.width, folderPopup.originX - folderCard.x))
-                    origin.y: Math.max(0, Math.min(folderCard.height, folderPopup.originY - folderCard.y))
-                    xScale: 1.0
-                    yScale: 1.0
-                }
+                // Where the card would have to sit, and how far it would have to
+                // shrink, to exactly cover the folder tile's preview square.
+                // Scaling x and y separately means the card genuinely takes the
+                // tile's shape at rest instead of merely being small there.
+                readonly property real collapsedXScale: folderPopup.originW / Math.max(1, width)
+                readonly property real collapsedYScale: folderPopup.originH / Math.max(1, height)
+
+                // Morphs out of the folder tile: scales up about its own centre
+                // while translating from the tile's position to the middle of
+                // the screen. Both are driven off openProgress, so the card
+                // tracks a single curve and the two never disagree.
+                transform: [
+                    Scale {
+                        id: folderCardScale
+                        origin.x: folderCard.width / 2
+                        origin.y: folderCard.height / 2
+                        xScale: folderCard.collapsedXScale
+                               + (1 - folderCard.collapsedXScale) * folderPopup.openProgress
+                        yScale: folderCard.collapsedYScale
+                               + (1 - folderCard.collapsedYScale) * folderPopup.openProgress
+                    },
+                    Scale {
+                        id: folderCardRecoilScale
+                        origin.x: folderCard.width / 2
+                        origin.y: folderCard.height / 2
+                        xScale: 1.0
+                        yScale: 1.0
+                    },
+                    Translate {
+                        x: (1 - folderPopup.openProgress)
+                           * (folderPopup.originX - (folderCard.x + folderCard.width / 2))
+                        y: (1 - folderPopup.openProgress)
+                           * (folderPopup.originY - (folderCard.y + folderCard.height / 2))
+                    }
+                ]
 
                 // Folder name (editable on click)
                 TextInput {
@@ -3132,6 +4147,9 @@ animatedEntrance: true
                     font.weight: Font.DemiBold
                     color: Kirigami.Theme.textColor
                     horizontalAlignment: Text.AlignHCenter
+                    // Arrives with the folder's contents, after the panel has
+                    // taken shape — see folderPopup.contentProgress
+                    opacity: folderPopup.contentProgress
                     readOnly: true
                     selectByMouse: true
                     width: folderCard.width - Kirigami.Units.largeSpacing * 4
@@ -3163,7 +4181,11 @@ animatedEntrance: true
                     anchors.topMargin: Kirigami.Units.largeSpacing
                     anchors.horizontalCenter: parent.horizontalCenter
 
+                    // rootItem.folderRevision is read purely to re-run these on
+                    // every rebuild — apps.count is reached through a get() and
+                    // does not notify on its own. See rootItem.folderRevision.
                     property int columns: {
+                        var revision = rootItem.folderRevision;
                         var idx = folderPopup.displayedFolderIndex;
                         if (idx < 0 || idx >= dashboardModel.count) return 3;
                         var item = dashboardModel.get(idx);
@@ -3178,8 +4200,20 @@ animatedEntrance: true
                     property int dragStartIndex: -1
                     property bool dragActive: false
 
+                    // Lives on the grid, not the delegate's MouseArea, and is
+                    // called before any write: committing rebuilds this grid's
+                    // model and destroys the delegate mid-handler, so anything
+                    // left until afterwards may never run. Stale drag state here
+                    // renders whichever item holds that index invisible.
+                    function endDrag() {
+                        dragFromIndex = -1;
+                        dragStartIndex = -1;
+                        dragActive = false;
+                    }
+
                     width: columns * root.cellSize
                     height: {
+                        var revision = rootItem.folderRevision;
                         var idx = folderPopup.displayedFolderIndex;
                         if (idx < 0 || idx >= dashboardModel.count) return root.cellSize;
                         var item = dashboardModel.get(idx);
@@ -3189,6 +4223,22 @@ animatedEntrance: true
                     cellWidth: root.cellSize
                     cellHeight: root.cellSize
                     interactive: false
+
+                    // The contents fade in as one block, not item by item. A
+                    // per-icon stagger belongs to lists that are being read
+                    // through; a folder's icons are part of the thing that just
+                    // expanded, so anything that presents them in sequence
+                    // fights the morph the card is already performing.
+                    opacity: folderPopup.contentProgress
+
+                    // Deliberately NOT animated, unlike the card around it. A
+                    // GridView derives its column count and its viewport from
+                    // its own width and height, so easing them re-flows the
+                    // layout every frame — and an OutBack undershoot briefly
+                    // narrows it to a single column. Items that land outside the
+                    // viewport mid-animation are never instantiated, which shows
+                    // up as apps simply missing from the folder. The grid stays
+                    // snapped to exact cell multiples; the card does the moving.
 
                     moveDisplaced: Transition {
                         NumberAnimation {
@@ -3226,60 +4276,12 @@ animatedEntrance: true
                             anchors.centerIn: parent
                             spacing: 2
 
-                            // Staggered pop-in as the folder springs open
-                            opacity: root.folderPopupDuration > 0 ? 0 : 1
-                            scale: root.folderPopupDuration > 0 ? 0.5 : 1.0
-                            transformOrigin: Item.Center
-
-                            Component.onCompleted: {
-                                if (root.folderPopupDuration <= 0 || folderPopup.contentEntranceTriggered) {
-                                    opacity = 1;
-                                    scale = 1.0;
-                                }
-                            }
-
-                            Connections {
-                                target: folderPopup
-                                function onContentEntranceTriggeredChanged() {
-                                    if (root.folderPopupDuration <= 0) {
-                                        folderItemContent.opacity = 1;
-                                        folderItemContent.scale = 1.0;
-                                        return;
-                                    }
-                                    if (folderPopup.contentEntranceTriggered) {
-                                        folderItemEntranceTimer.start();
-                                    } else {
-                                        folderItemEntranceAnim.stop();
-                                        folderItemEntranceTimer.stop();
-                                        folderItemContent.opacity = 0;
-                                        folderItemContent.scale = 0.5;
-                                    }
-                                }
-                            }
-
-                            Timer {
-                                id: folderItemEntranceTimer
-                                interval: Math.min(folderDelegate.itemIndex * 35, 350)
-                                repeat: false
-                                onTriggered: folderItemEntranceAnim.start()
-                            }
-
-                            ParallelAnimation {
-                                id: folderItemEntranceAnim
-                                NumberAnimation {
-                                    target: folderItemContent; property: "opacity"
-                                    from: 0; to: 1
-                                    duration: root.folderPopupDuration * 0.9
-                                    easing.type: Easing.OutCubic
-                                }
-                                NumberAnimation {
-                                    target: folderItemContent; property: "scale"
-                                    from: 0.5; to: 1.0
-                                    duration: root.folderPopupDuration * 1.2
-                                    easing.type: Easing.OutBack
-                                    easing.overshoot: 1.6
-                                }
-                            }
+                            // No per-icon entrance: the whole grid fades in
+                            // together, driven by folderGrid.opacity. This also
+                            // removes the old failure mode where a delegate that
+                            // missed its trigger stayed at opacity 0 until
+                            // plasmashell restarted — there is nothing left here
+                            // that can leave an icon invisible.
 
                             Kirigami.Icon {
                                 width: root.iconSize
@@ -3295,7 +4297,7 @@ animatedEntrance: true
                                 horizontalAlignment: Text.AlignHCenter
                                 elide: Text.ElideRight
                                 maximumLineCount: 1
-                                font.pointSize: Kirigami.Theme.defaultFont.pointSize - 1
+                                font.pointSize: root.scaledFont(Kirigami.Theme.defaultFont.pointSize - 1, root.dashboardFontScale)
                                 anchors.horizontalCenter: parent.horizontalCenter
                             }
                         }
@@ -3320,6 +4322,8 @@ animatedEntrance: true
                             onPressed: mouse => {
                                 if (mouse.button === Qt.RightButton) {
                                     folderItemContextMenu.appDesktopFile = model.desktopFile;
+                                    folderItemContextMenu.appIcon = model.icon || "";
+                                    folderItemContextMenu.appIndex = folderDelegate.itemIndex;
                                     folderItemContextMenu.folderIdx = rootItem.openFolderIndex;
                                     folderItemContextMenu.visualParent = folderDelegate;
                                     menuOpenTimer.openMenu(folderItemContextMenu, mouse.x, mouse.y);
@@ -3330,29 +4334,46 @@ animatedEntrance: true
                             }
 
                             onReleased: mouse => {
-                                if (dragging) {
-                                    dragging = false;
-                                    dragGhost.visible = false;
-
-                                    // Check if released outside the folder card — move out
-                                    var posInCard = mapToItem(folderCard, mouse.x, mouse.y);
-                                    if (posInCard.x < 0 || posInCard.x > folderCard.width
-                                        || posInCard.y < 0 || posInCard.y > folderCard.height) {
-                                        rootItem.moveAppOutOfFolder(rootItem.openFolderIndex, folderGrid.dragFromIndex);
-                                    } else if (folderGrid.dragFromIndex !== folderGrid.dragStartIndex) {
-                                        // Reordered live inside the folder — persist the order
-                                        rootItem.syncModelToConfig();
-                                    }
-
-                                    folderGrid.dragFromIndex = -1;
-                                    folderGrid.dragStartIndex = -1;
-                                    folderGrid.dragActive = false;
-                                } else if (mouse.button === Qt.LeftButton) {
-                                    rootItem.openFolderIndex = -1;
-                                    launchAppFromItem(model.desktopFile, folderDelegate);
-                                }
+                                // Everything this handler needs is read and reset up
+                                // front. The write below rebuilds the folder's model,
+                                // which destroys this delegate and the MouseArea running
+                                // this very handler — statements after that point are not
+                                // guaranteed to execute.
+                                var wasDragging = dragging;
                                 pressX = -1;
                                 pressY = -1;
+                                if (!wasDragging) {
+                                    if (mouse.button === Qt.LeftButton) {
+                                        rootItem.openFolderIndex = -1;
+                                        launchAppFromItem(model.desktopFile, folderDelegate);
+                                    }
+                                    return;
+                                }
+
+                                dragging = false;
+                                dragGhost.visible = false;
+
+                                var fromIdx = folderGrid.dragFromIndex;
+                                var reordered = folderGrid.dragFromIndex !== folderGrid.dragStartIndex;
+                                var ghostIcon = dragGhost.iconSource;
+                                var ghostX = dragGhost.x + dragGhost.width / 2;
+                                var ghostY = dragGhost.y + dragGhost.height / 2;
+                                // Released outside the folder card means move out
+                                var posInCard = mapToItem(folderCard, mouse.x, mouse.y);
+                                var droppedOut = posInCard.x < 0 || posInCard.x > folderCard.width
+                                                 || posInCard.y < 0 || posInCard.y > folderCard.height;
+
+                                folderGrid.endDrag();
+
+                                if (droppedOut) {
+                                    // Carries on from where the ghost was let go, so
+                                    // the throw and the flight read as one gesture
+                                    rootItem.ejectToDashboard(rootItem.openFolderIndex, fromIdx,
+                                                              ghostIcon, ghostX, ghostY);
+                                } else if (reordered) {
+                                    // Reordered live inside the folder — persist the order
+                                    rootItem.syncModelToConfig();
+                                }
                             }
 
                             onPositionChanged: mouse => {
@@ -3411,6 +4432,8 @@ animatedEntrance: true
         PlasmaExtras.Menu {
             id: folderItemContextMenu
             property string appDesktopFile: ""
+            property string appIcon: ""
+            property int appIndex: -1
             property int folderIdx: -1
 
             PlasmaExtras.MenuItem {
@@ -3419,8 +4442,10 @@ animatedEntrance: true
                 onClicked: {
                     var fi = folderItemContextMenu.folderIdx;
                     var df = folderItemContextMenu.appDesktopFile;
+                    var ai = folderItemContextMenu.appIndex;
+                    var ic = folderItemContextMenu.appIcon;
                     folderItemContextMenu.close();
-                    rootItem.removeFromFolder(fi, df);
+                    rootItem.dismissFromFolder(fi, ai, df, ic);
                 }
             }
         }
@@ -3663,6 +4688,12 @@ animatedEntrance: true
     }
 
     Component.onCompleted: {
+        // OR'd in rather than assigned: DashboardWindow sets
+        // Qt.FramelessWindowHint in its constructor and we must not drop it.
+        // Safe to do here — the window is built up front but not shown until
+        // the first toggle(), so no platform surface gets recreated.
+        root.flags = root.flags | Qt.WindowStaysOnTopHint;
+
         rootModel.refresh();
         flatAllAppsRootModel.refresh();
         searchField.forceActiveFocus();

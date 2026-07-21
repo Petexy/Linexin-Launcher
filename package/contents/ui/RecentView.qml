@@ -44,10 +44,17 @@ Item {
 
     readonly property int itemCount: recentModel ? recentModel.count : 0
 
+    // Header, counter and empty state are shared chrome: they follow whichever
+    // tab is on screen.
+    readonly property real fontScale: filesTab ? root.recentFilesFontScale : root.recentAppsFontScale
+
     // ---- Apps layout: at most 5 columns × 3 rows = the 15-entry cap ----
     readonly property int appCols: Math.max(1, Math.min(5, appsGrid.count))
     readonly property int appRows: Math.max(1, Math.ceil(appsGrid.count / 5))
-    readonly property int cellOverhead: root.cellSize - root.iconSize
+    // Non-icon part of a cell (label + padding); grows with the Recent Apps
+    // font setting so bigger names still fit under the hero icons.
+    readonly property int cellOverhead: Math.round((root.cellSize - root.iconSize)
+                                                   * Math.max(1, root.recentAppsFontScale))
 
     // Icons grow up to 1.6× to own the stage, bounded by what actually fits.
     // The row divisor never drops below 2 so a near-empty history doesn't
@@ -63,7 +70,9 @@ Item {
     // ---- Files layout: one roomy column up to 8 entries, two beyond ----
     readonly property int fileCols: itemCount > 8 ? 2 : 1
     readonly property int fileRows: Math.max(1, Math.ceil(itemCount / fileCols))
-    readonly property int fileRowHeight: Math.round(Kirigami.Units.gridUnit * 2.8)
+    // Two stacked labels live in each row, so the row has to grow with them.
+    readonly property int fileRowHeight: Math.round(Kirigami.Units.gridUnit * 2.8
+                                                    * Math.max(1, root.recentFilesFontScale))
     readonly property int fileColWidth: Math.min(Kirigami.Units.gridUnit * 26,
                                                  Math.floor((width - Kirigami.Units.largeSpacing * 2) / Math.max(1, fileCols)))
 
@@ -72,14 +81,47 @@ Item {
         : (filesTab ? fileCols * fileColWidth : appCols * heroCellSize)
     readonly property int headerWidth: Math.min(width, Math.max(blockWidth, Kirigami.Units.gridUnit * 24))
 
+    // KActivities fills the recent models asynchronously, so the rows can land
+    // after the view is already on screen — and every layout number above is
+    // derived from the count. An entrance started before the history settles
+    // gets re-laid-out under itself on each insertion: the cells resize while
+    // the icons are mid-animation, which reads as the entrance stuttering or
+    // playing several times over. Latch the request instead and play it once,
+    // after the count has stopped moving. Until then the icons sit hidden, so
+    // the resizing costs nothing visually.
+    property bool _entrancePending: false
+
     function animateEntrance() {
-        appsGrid.animateEntrance();
-        filesGrid.animateEntrance();
+        _entrancePending = true;
+        appsGrid.resetEntrance();
+        filesGrid.resetEntrance();
+        entranceSettleTimer.restart();
     }
 
     function resetEntrance() {
+        _entrancePending = false;
+        entranceSettleTimer.stop();
         appsGrid.resetEntrance();
         filesGrid.resetEntrance();
+    }
+
+    onItemCountChanged: {
+        if (_entrancePending) {
+            entranceSettleTimer.restart();
+        }
+    }
+
+    Timer {
+        id: entranceSettleTimer
+        // One frame of quiet is enough: the model inserts its rows in a burst
+        // of consecutive event-loop cycles, not spread over time.
+        interval: 16
+        repeat: false
+        onTriggered: {
+            recentView._entrancePending = false;
+            appsGrid.animateEntrance();
+            filesGrid.animateEntrance();
+        }
     }
 
     function tryActivate() {
@@ -174,7 +216,7 @@ Item {
 
                 PlasmaComponents.Label {
                     text: recentView.filesTab ? i18n("Recent Files") : i18n("Recent Apps")
-                    font.pointSize: Kirigami.Theme.defaultFont.pointSize + 3
+                    font.pointSize: root.scaledFont(Kirigami.Theme.defaultFont.pointSize + 3, recentView.fontScale)
                     font.weight: Font.DemiBold
                     anchors.verticalCenter: parent.verticalCenter
                 }
@@ -182,7 +224,7 @@ Item {
                 PlasmaComponents.Label {
                     visible: recentView.itemCount > 0
                     text: i18np("%1 item", "%1 items", recentView.itemCount)
-                    font.pointSize: Kirigami.Theme.defaultFont.pointSize - 0.5
+                    font.pointSize: root.scaledFont(Kirigami.Theme.defaultFont.pointSize - 0.5, recentView.fontScale)
                     opacity: 0.5
                     anchors.verticalCenter: parent.verticalCenter
                 }
@@ -234,7 +276,7 @@ Item {
 
                     PlasmaComponents.Label {
                         text: clearButton.armed ? i18n("Click again to confirm") : i18n("Clear History")
-                        font.pointSize: Kirigami.Theme.defaultFont.pointSize - 0.5
+                        font.pointSize: root.scaledFont(Kirigami.Theme.defaultFont.pointSize - 0.5, recentView.fontScale)
                         color: Kirigami.Theme.textColor
                         anchors.verticalCenter: parent.verticalCenter
                     }
@@ -272,6 +314,7 @@ Item {
         // =============================================
         ItemGridView {
             id: appsGrid
+            labelFontScale: root.recentAppsFontScale
             visible: !recentView.filesTab && recentView.itemCount > 0
             anchors.horizontalCenter: parent.horizontalCenter
             width: recentView.appCols * recentView.heroCellSize + Kirigami.Units.gridUnit
@@ -502,7 +545,7 @@ Item {
                             text: model.display || ""
                             elide: Text.ElideMiddle
                             maximumLineCount: 1
-                            font.pointSize: Kirigami.Theme.defaultFont.pointSize + 0.5
+                            font.pointSize: root.scaledFont(Kirigami.Theme.defaultFont.pointSize + 0.5, root.recentFilesFontScale)
                         }
 
                         PlasmaComponents.Label {
@@ -511,7 +554,7 @@ Item {
                             text: recentView.prettyPath(model.url)
                             elide: Text.ElideMiddle
                             maximumLineCount: 1
-                            font.pointSize: Kirigami.Theme.defaultFont.pointSize - 1.5
+                            font.pointSize: root.scaledFont(Kirigami.Theme.defaultFont.pointSize - 1.5, root.recentFilesFontScale)
                             opacity: 0.55
                         }
                     }
@@ -563,7 +606,7 @@ Item {
                     ? i18n("Files you open will show up here")
                     : i18n("Apps you launch will show up here")
                 opacity: 0.5
-                font.pointSize: Kirigami.Theme.defaultFont.pointSize + 1
+                font.pointSize: root.scaledFont(Kirigami.Theme.defaultFont.pointSize + 1, recentView.fontScale)
                 anchors.horizontalCenter: parent.horizontalCenter
             }
         }

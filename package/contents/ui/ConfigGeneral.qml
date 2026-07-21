@@ -6,6 +6,7 @@
 import QtQuick 2.15
 import QtQuick.Controls 2.15
 import QtQuick.Layouts 1.15
+import QtQuick.Dialogs
 
 import org.kde.draganddrop 2.0 as DragDrop
 import org.kde.kirigami 2.20 as Kirigami
@@ -30,13 +31,24 @@ KCM.SimpleKCM {
     property alias cfg_favsIconSize: favsIconSize.currentIndex
     property alias cfg_systemIconSize: systemIconSize.currentIndex
 
+    property alias cfg_categoryFontSize: categoryFontSlider.value
+    property alias cfg_dashboardFontSize: dashboardFontSlider.value
+    property alias cfg_allAppsFontSize: allAppsFontSlider.value
+    property alias cfg_recentAppsFontSize: recentAppsFontSlider.value
+    property alias cfg_recentFilesFontSize: recentFilesFontSlider.value
+
     property alias cfg_animationDuration: animDurationSlider.value
     property alias cfg_iconEntranceDuration: iconEntranceSlider.value
     property alias cfg_hoverEffectDuration: hoverEffectSlider.value
     property alias cfg_folderPopupDuration: folderPopupSlider.value
     property alias cfg_appLaunchDuration: appLaunchSlider.value
     property alias cfg_dragMoveDuration: dragMoveSlider.value
+    property alias cfg_folderCreateDuration: folderCreateSlider.value
+    property alias cfg_folderAddDuration: folderAddSlider.value
+    property alias cfg_folderRemoveDuration: folderRemoveSlider.value
     property alias cfg_backgroundOpacity: bgOpacitySlider.value
+    property alias cfg_useCustomBackgroundColor: useCustomBgColor.checked
+    property string cfg_backgroundColor: Plasmoid.configuration.backgroundColor
 
     property alias cfg_useExtraRunners: useExtraRunners.checked
 
@@ -202,6 +214,104 @@ KCM.SimpleKCM {
 
         Item {
             Kirigami.FormData.isSection: true
+            Kirigami.FormData.label: i18n("Font size")
+        }
+
+        // ---- Font sizes ----
+
+        RowLayout {
+            Kirigami.FormData.label: i18n("Category bar:")
+            spacing: Kirigami.Units.smallSpacing
+
+            Slider {
+                id: categoryFontSlider
+                from: 50
+                to: 200
+                stepSize: 5
+                Layout.preferredWidth: Kirigami.Units.gridUnit * 12
+            }
+
+            Label {
+                text: categoryFontSlider.value + "%"
+                Layout.minimumWidth: Kirigami.Units.gridUnit * 3
+            }
+        }
+
+        RowLayout {
+            Kirigami.FormData.label: i18n("Dashboard:")
+            spacing: Kirigami.Units.smallSpacing
+
+            Slider {
+                id: dashboardFontSlider
+                from: 50
+                to: 200
+                stepSize: 5
+                Layout.preferredWidth: Kirigami.Units.gridUnit * 12
+            }
+
+            Label {
+                text: dashboardFontSlider.value + "%"
+                Layout.minimumWidth: Kirigami.Units.gridUnit * 3
+            }
+        }
+
+        RowLayout {
+            Kirigami.FormData.label: i18n("All apps:")
+            spacing: Kirigami.Units.smallSpacing
+
+            Slider {
+                id: allAppsFontSlider
+                from: 50
+                to: 200
+                stepSize: 5
+                Layout.preferredWidth: Kirigami.Units.gridUnit * 12
+            }
+
+            Label {
+                text: allAppsFontSlider.value + "%"
+                Layout.minimumWidth: Kirigami.Units.gridUnit * 3
+            }
+        }
+
+        RowLayout {
+            Kirigami.FormData.label: i18n("Recent apps:")
+            spacing: Kirigami.Units.smallSpacing
+
+            Slider {
+                id: recentAppsFontSlider
+                from: 50
+                to: 200
+                stepSize: 5
+                Layout.preferredWidth: Kirigami.Units.gridUnit * 12
+            }
+
+            Label {
+                text: recentAppsFontSlider.value + "%"
+                Layout.minimumWidth: Kirigami.Units.gridUnit * 3
+            }
+        }
+
+        RowLayout {
+            Kirigami.FormData.label: i18n("Recent files:")
+            spacing: Kirigami.Units.smallSpacing
+
+            Slider {
+                id: recentFilesFontSlider
+                from: 50
+                to: 200
+                stepSize: 5
+                Layout.preferredWidth: Kirigami.Units.gridUnit * 12
+            }
+
+            Label {
+                text: recentFilesFontSlider.value + "%"
+                Layout.minimumWidth: Kirigami.Units.gridUnit * 3
+            }
+        }
+
+        Item {
+            Kirigami.FormData.isSection: true
+            Kirigami.FormData.label: i18n("Animation duration")
         }
 
         // ---- Animations ----
@@ -315,6 +425,67 @@ KCM.SimpleKCM {
         }
 
         RowLayout {
+            Kirigami.FormData.label: i18n("Create folder:")
+            spacing: Kirigami.Units.smallSpacing
+
+            Slider {
+                id: folderCreateSlider
+                from: 0
+                to: 1500
+                stepSize: 50
+                Layout.preferredWidth: Kirigami.Units.gridUnit * 12
+            }
+
+            Label {
+                text: folderCreateSlider.value === 0 ? i18n("Off") : folderCreateSlider.value + " ms"
+                Layout.minimumWidth: Kirigami.Units.gridUnit * 3
+            }
+        }
+
+        RowLayout {
+            Kirigami.FormData.label: i18n("Add to folder:")
+            spacing: Kirigami.Units.smallSpacing
+
+            Slider {
+                id: folderAddSlider
+                from: 0
+                to: 1500
+                stepSize: 50
+                Layout.preferredWidth: Kirigami.Units.gridUnit * 12
+            }
+
+            Label {
+                text: folderAddSlider.value === 0 ? i18n("Off") : folderAddSlider.value + " ms"
+                Layout.minimumWidth: Kirigami.Units.gridUnit * 3
+            }
+        }
+
+        RowLayout {
+            Kirigami.FormData.label: i18n("Remove from folder:")
+            spacing: Kirigami.Units.smallSpacing
+
+            Slider {
+                id: folderRemoveSlider
+                from: 0
+                to: 1500
+                stepSize: 50
+                Layout.preferredWidth: Kirigami.Units.gridUnit * 12
+            }
+
+            Label {
+                text: folderRemoveSlider.value === 0 ? i18n("Off") : folderRemoveSlider.value + " ms"
+                Layout.minimumWidth: Kirigami.Units.gridUnit * 3
+            }
+        }
+
+        Item {
+            Kirigami.FormData.isSection: true
+            Kirigami.FormData.label: i18n("Background")
+        }
+
+        // ---- Background ----
+
+        RowLayout {
             Kirigami.FormData.label: i18n("Background opacity:")
             spacing: Kirigami.Units.smallSpacing
 
@@ -330,6 +501,49 @@ KCM.SimpleKCM {
                 text: bgOpacitySlider.value + "%"
                 Layout.minimumWidth: Kirigami.Units.gridUnit * 3
             }
+        }
+
+        CheckBox {
+            id: useCustomBgColor
+            Kirigami.FormData.label: i18n("Background color:")
+            text: i18n("Use a custom color")
+        }
+
+        RowLayout {
+            spacing: Kirigami.Units.smallSpacing
+            enabled: useCustomBgColor.checked
+
+            Button {
+                implicitWidth: Kirigami.Units.gridUnit * 4
+                onClicked: {
+                    // Seed on open rather than binding: the dialog writes back to
+                    // selectedColor while the user picks, which would break a binding.
+                    bgColorDialog.selectedColor = configGeneral.cfg_backgroundColor;
+                    bgColorDialog.open();
+                }
+
+                Rectangle {
+                    anchors.centerIn: parent
+                    width: parent.width - Kirigami.Units.smallSpacing * 2
+                    height: parent.height - Kirigami.Units.smallSpacing * 2
+                    radius: 4
+                    color: configGeneral.cfg_backgroundColor
+                    border.width: 1
+                    border.color: Kirigami.Theme.textColor
+                    opacity: parent.enabled ? 1.0 : 0.5
+                }
+            }
+
+            Label {
+                text: configGeneral.cfg_backgroundColor
+                Layout.minimumWidth: Kirigami.Units.gridUnit * 5
+            }
+        }
+
+        ColorDialog {
+            id: bgColorDialog
+            title: i18n("Choose Background Color")
+            onAccepted: configGeneral.cfg_backgroundColor = selectedColor.toString()
         }
 
         Item {
@@ -363,13 +577,23 @@ KCM.SimpleKCM {
                 appsIconSize.currentIndex = 3;
                 favsIconSize.currentIndex = 2;
                 systemIconSize.currentIndex = 1;
+                categoryFontSlider.value = 100;
+                dashboardFontSlider.value = 100;
+                allAppsFontSlider.value = 100;
+                recentAppsFontSlider.value = 100;
+                recentFilesFontSlider.value = 100;
                 animDurationSlider.value = 350;
-                iconEntranceSlider.value = 400;
+                iconEntranceSlider.value = 350;
                 hoverEffectSlider.value = 150;
                 folderPopupSlider.value = 250;
-                appLaunchSlider.value = 450;
+                appLaunchSlider.value = 150;
                 dragMoveSlider.value = 280;
-                bgOpacitySlider.value = 40;
+                folderCreateSlider.value = 500;
+                folderAddSlider.value = 420;
+                folderRemoveSlider.value = 420;
+                bgOpacitySlider.value = 55;
+                useCustomBgColor.checked = false;
+                cfg_backgroundColor = "#000000";
                 useExtraRunners.checked = true;
             }
         }

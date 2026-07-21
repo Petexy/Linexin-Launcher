@@ -19,6 +19,9 @@ msgstr ""
 msgid "Edit Applications…"
 msgstr "编辑应用程序…"
 
+msgid "General"
+msgstr "常规"
+
 msgid "Panel icon:"
 msgstr "面板图标："
 
@@ -81,11 +84,32 @@ msgstr "活动应用图标大小："
 msgid "System actions icon size:"
 msgstr "系统操作图标大小："
 
+msgid "Font size"
+msgstr "字体大小"
+
+msgid "Category bar:"
+msgstr "分类栏："
+
+msgid "All apps:"
+msgstr "所有应用："
+
+msgid "Recent apps:"
+msgstr "最近使用："
+
+msgid "Recent files:"
+msgstr "最近文件："
+
+msgid "Animation duration"
+msgstr "动画时长"
+
 msgid "Open/Close:"
 msgstr "打开/关闭："
 
 msgid "Off"
 msgstr "关闭"
+
+msgid "App launch:"
+msgstr "应用启动："
 
 msgid "Icon entrance:"
 msgstr "图标入场："
@@ -96,8 +120,32 @@ msgstr "悬停效果："
 msgid "Folder popup:"
 msgstr "文件夹弹窗："
 
+msgid "Move icons:"
+msgstr "移动图标："
+
+msgid "Create folder:"
+msgstr "创建文件夹："
+
+msgid "Add to folder:"
+msgstr "添加到文件夹："
+
+msgid "Remove from folder:"
+msgstr "从文件夹移除："
+
+msgid "Background"
+msgstr "背景"
+
 msgid "Background opacity:"
 msgstr "背景不透明度："
+
+msgid "Background color:"
+msgstr "背景颜色："
+
+msgid "Use a custom color"
+msgstr "使用自定义颜色"
+
+msgid "Choose Background Color"
+msgstr "选择背景颜色"
 
 msgid "Search:"
 msgstr "搜索："
@@ -171,6 +219,25 @@ msgstr "按字母排序"
 
 msgid "All Letters"
 msgstr "所有字母"
+
+msgid "Clear History"
+msgstr "清除历史"
+
+msgid "Click again to confirm"
+msgstr "再次点击以确认"
+
+msgid "Recent Files"
+msgstr "最近文件"
+
+msgid "%1 item"
+msgid_plural "%1 items"
+msgstr[0] "%1 个项目"
+
+msgid "Files you open will show up here"
+msgstr "您打开的文件将显示在这里"
+
+msgid "Apps you launch will show up here"
+msgstr "您启动的应用将显示在这里"
 
 msgid "Folder"
 msgstr "文件夹"

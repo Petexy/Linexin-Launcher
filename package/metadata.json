@@ -12,7 +12,7 @@
         "FormFactors": [
             "desktop"
         ],
-        "Icon": "start-here-kde",
+        "Icon": "linexin-launcher",
         "Id": "org.linexin.launcher",
         "License": "GPL-3.0+",
         "Name": "Linexin Launcher",

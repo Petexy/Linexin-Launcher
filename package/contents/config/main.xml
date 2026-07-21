@@ -89,14 +89,36 @@
       <default>1</default>
     </entry>
 
+    <!-- Font sizes, as a percentage of each view's default label size -->
+    <entry name="categoryFontSize" type="Int">
+      <label>Font size of the category bar at the top, in percent.</label>
+      <default>100</default>
+    </entry>
+    <entry name="dashboardFontSize" type="Int">
+      <label>Font size of dashboard app labels, in percent.</label>
+      <default>100</default>
+    </entry>
+    <entry name="allAppsFontSize" type="Int">
+      <label>Font size of application labels in the app grids, in percent.</label>
+      <default>100</default>
+    </entry>
+    <entry name="recentAppsFontSize" type="Int">
+      <label>Font size of the Recent Apps view, in percent.</label>
+      <default>100</default>
+    </entry>
+    <entry name="recentFilesFontSize" type="Int">
+      <label>Font size of the Recent Files view, in percent.</label>
+      <default>100</default>
+    </entry>
+
     <!-- Animation settings -->
     <entry name="animationDuration" type="Int">
       <label>Duration of open/close animations in milliseconds.</label>
-      <default>150</default>
+      <default>350</default>
     </entry>
     <entry name="iconEntranceDuration" type="Int">
       <label>Duration of icon entrance animations in milliseconds.</label>
-      <default>150</default>
+      <default>350</default>
     </entry>
     <entry name="hoverEffectDuration" type="Int">
       <label>Duration of hover/press effect animations in milliseconds.</label>
@@ -108,15 +130,35 @@
     </entry>
     <entry name="appLaunchDuration" type="Int">
       <label>Duration of the zoom-into-app launch animation in milliseconds.</label>
-      <default>450</default>
+      <default>150</default>
     </entry>
     <entry name="dragMoveDuration" type="Int">
       <label>Duration of icon drag, reorder, and drop animations in milliseconds.</label>
       <default>280</default>
     </entry>
+    <entry name="folderCreateDuration" type="Int">
+      <label>Duration of the folder creation animation in milliseconds.</label>
+      <default>500</default>
+    </entry>
+    <entry name="folderAddDuration" type="Int">
+      <label>Duration of the add-to-folder animation in milliseconds.</label>
+      <default>420</default>
+    </entry>
+    <entry name="folderRemoveDuration" type="Int">
+      <label>Duration of the remove-from-folder animation in milliseconds.</label>
+      <default>420</default>
+    </entry>
     <entry name="backgroundOpacity" type="Int">
       <label>Background opacity percentage (0-100).</label>
-      <default>40</default>
+      <default>55</default>
+    </entry>
+    <entry name="useCustomBackgroundColor" type="Bool">
+      <label>Whether to tint the background with a custom color instead of the theme color.</label>
+      <default>false</default>
+    </entry>
+    <entry name="backgroundColor" type="String">
+      <label>Custom background color, as a #rrggbb string.</label>
+      <default>#000000</default>
     </entry>
 
     <entry name="dashboardApps" type="String">

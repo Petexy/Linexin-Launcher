@@ -19,6 +19,9 @@ msgstr ""
 msgid "Edit Applications…"
 msgstr "Anwendungen bearbeiten…"
 
+msgid "General"
+msgstr "Allgemein"
+
 msgid "Panel icon:"
 msgstr "Symbolleistensymbol:"
 
@@ -81,11 +84,32 @@ msgstr "Symbolgröße aktiver Anwendungen:"
 msgid "System actions icon size:"
 msgstr "Symbolgröße der Systemaktionen:"
 
+msgid "Font size"
+msgstr "Schriftgröße"
+
+msgid "Category bar:"
+msgstr "Kategorieleiste:"
+
+msgid "All apps:"
+msgstr "Alle Anwendungen:"
+
+msgid "Recent apps:"
+msgstr "Zuletzt verwendet:"
+
+msgid "Recent files:"
+msgstr "Zuletzt geöffnete Dateien:"
+
+msgid "Animation duration"
+msgstr "Animationsdauer"
+
 msgid "Open/Close:"
 msgstr "Öffnen/Schließen:"
 
 msgid "Off"
 msgstr "Aus"
+
+msgid "App launch:"
+msgstr "Anwendungsstart:"
 
 msgid "Icon entrance:"
 msgstr "Symboleinblendung:"
@@ -96,8 +120,32 @@ msgstr "Hover-Effekte:"
 msgid "Folder popup:"
 msgstr "Ordner-Popup:"
 
+msgid "Move icons:"
+msgstr "Symbole verschieben:"
+
+msgid "Create folder:"
+msgstr "Ordner erstellen:"
+
+msgid "Add to folder:"
+msgstr "Zum Ordner hinzufügen:"
+
+msgid "Remove from folder:"
+msgstr "Aus Ordner entfernen:"
+
+msgid "Background"
+msgstr "Hintergrund"
+
 msgid "Background opacity:"
 msgstr "Hintergrunddeckkraft:"
+
+msgid "Background color:"
+msgstr "Hintergrundfarbe:"
+
+msgid "Use a custom color"
+msgstr "Eigene Farbe verwenden"
+
+msgid "Choose Background Color"
+msgstr "Hintergrundfarbe auswählen"
 
 msgid "Search:"
 msgstr "Suche:"
@@ -171,6 +219,26 @@ msgstr "Alphabetisch"
 
 msgid "All Letters"
 msgstr "Alle Buchstaben"
+
+msgid "Clear History"
+msgstr "Verlauf leeren"
+
+msgid "Click again to confirm"
+msgstr "Zum Bestätigen erneut klicken"
+
+msgid "Recent Files"
+msgstr "Zuletzt geöffnete Dateien"
+
+msgid "%1 item"
+msgid_plural "%1 items"
+msgstr[0] "%1 Element"
+msgstr[1] "%1 Elemente"
+
+msgid "Files you open will show up here"
+msgstr "Von Ihnen geöffnete Dateien erscheinen hier"
+
+msgid "Apps you launch will show up here"
+msgstr "Von Ihnen gestartete Anwendungen erscheinen hier"
 
 msgid "Folder"
 msgstr "Ordner"

@@ -19,6 +19,9 @@ msgstr ""
 msgid "Edit Applications…"
 msgstr "अनुप्रयोग संपादित करें…"
 
+msgid "General"
+msgstr "सामान्य"
+
 msgid "Panel icon:"
 msgstr "पैनल आइकन:"
 
@@ -81,11 +84,32 @@ msgstr "सक्रिय ऐप आइकन आकार:"
 msgid "System actions icon size:"
 msgstr "सिस्टम क्रिया आइकन आकार:"
 
+msgid "Font size"
+msgstr "फ़ॉन्ट आकार"
+
+msgid "Category bar:"
+msgstr "श्रेणी पट्टी:"
+
+msgid "All apps:"
+msgstr "सभी ऐप्स:"
+
+msgid "Recent apps:"
+msgstr "हाल के ऐप्स:"
+
+msgid "Recent files:"
+msgstr "हाल की फ़ाइलें:"
+
+msgid "Animation duration"
+msgstr "एनिमेशन अवधि"
+
 msgid "Open/Close:"
 msgstr "खोलें/बंद करें:"
 
 msgid "Off"
 msgstr "बंद"
+
+msgid "App launch:"
+msgstr "ऐप लॉन्च:"
 
 msgid "Icon entrance:"
 msgstr "आइकन प्रवेश:"
@@ -96,8 +120,32 @@ msgstr "होवर प्रभाव:"
 msgid "Folder popup:"
 msgstr "फ़ोल्डर पॉपअप:"
 
+msgid "Move icons:"
+msgstr "आइकन खिसकाना:"
+
+msgid "Create folder:"
+msgstr "फ़ोल्डर बनाना:"
+
+msgid "Add to folder:"
+msgstr "फ़ोल्डर में जोड़ना:"
+
+msgid "Remove from folder:"
+msgstr "फ़ोल्डर से हटाना:"
+
+msgid "Background"
+msgstr "पृष्ठभूमि"
+
 msgid "Background opacity:"
 msgstr "पृष्ठभूमि अपारदर्शिता:"
+
+msgid "Background color:"
+msgstr "पृष्ठभूमि रंग:"
+
+msgid "Use a custom color"
+msgstr "कस्टम रंग उपयोग करें"
+
+msgid "Choose Background Color"
+msgstr "पृष्ठभूमि रंग चुनें"
 
 msgid "Search:"
 msgstr "खोज:"
@@ -171,6 +219,26 @@ msgstr "वर्णानुक्रम में"
 
 msgid "All Letters"
 msgstr "सभी अक्षर"
+
+msgid "Clear History"
+msgstr "इतिहास साफ़ करें"
+
+msgid "Click again to confirm"
+msgstr "पुष्टि के लिए फिर से क्लिक करें"
+
+msgid "Recent Files"
+msgstr "हाल की फ़ाइलें"
+
+msgid "%1 item"
+msgid_plural "%1 items"
+msgstr[0] "%1 आइटम"
+msgstr[1] "%1 आइटम"
+
+msgid "Files you open will show up here"
+msgstr "आपके द्वारा खोली गई फ़ाइलें यहाँ दिखाई देंगी"
+
+msgid "Apps you launch will show up here"
+msgstr "आपके द्वारा चलाए गए ऐप्स यहाँ दिखाई देंगे"
 
 msgid "Folder"
 msgstr "फ़ोल्डर"

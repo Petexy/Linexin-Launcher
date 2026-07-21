@@ -21,6 +21,9 @@ Item {
     enabled: !model.disabled
 
     property bool showLabel: true
+    // Set by the grid when this tile is an A-Z group rather than an app.
+    property bool groupLabel: false
+    property real labelFontScale: 1.0
     property bool animatedEntrance: false
     property bool entranceTriggered: false
 
@@ -142,6 +145,11 @@ Item {
         Kirigami.Icon {
             id: iconItem
 
+            // A-Z group rows carry no icon of their own, so the tile would be a
+            // blank square with a caption under it. Drop the icon there and let
+            // the letter have the whole cell.
+            visible: !item.groupLabel || String(model.decoration) !== ""
+
             y: item.showLabel ? (2 * highlightItemSvg.margins.top) : null
 
             anchors.horizontalCenter: parent.horizontalCenter
@@ -172,8 +180,9 @@ Item {
             visible: item.showLabel
 
             anchors {
-                top: iconItem.bottom
+                top: iconItem.visible ? iconItem.bottom : undefined
                 topMargin: Kirigami.Units.smallSpacing
+                verticalCenter: iconItem.visible ? undefined : parent.verticalCenter
                 left: parent.left
                 leftMargin: highlightItemSvg.margins.left
                 right: parent.right
@@ -184,13 +193,17 @@ Item {
             maximumLineCount: 2
             elide: Text.ElideMiddle
             wrapMode: Text.Wrap
-            font.pointSize: Kirigami.Theme.defaultFont.pointSize + 0.5
+            font.pointSize: root.scaledFont(item.groupLabel
+                ? Kirigami.Theme.defaultFont.pointSize + 14
+                : Kirigami.Theme.defaultFont.pointSize + 0.5, item.labelFontScale)
+            font.weight: item.groupLabel ? Font.Bold : Font.Normal
 
             text: ("name" in model ? model.name : model.display)
             textFormat: Text.PlainText
 
-            // Fade in label smoothly
-            opacity: item.opacity
+            // Fade in label smoothly. Group letters are held back a little so
+            // they read as signposts rather than competing with the app tiles.
+            opacity: item.groupLabel ? item.opacity * 0.85 : item.opacity
         }
     }
 

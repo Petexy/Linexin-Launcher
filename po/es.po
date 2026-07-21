@@ -19,6 +19,9 @@ msgstr ""
 msgid "Edit Applications…"
 msgstr "Editar aplicaciones…"
 
+msgid "General"
+msgstr "General"
+
 msgid "Panel icon:"
 msgstr "Icono del panel:"
 
@@ -81,11 +84,32 @@ msgstr "Tamaño de iconos de aplicaciones activas:"
 msgid "System actions icon size:"
 msgstr "Tamaño de iconos de acciones del sistema:"
 
+msgid "Font size"
+msgstr "Tamaño de fuente"
+
+msgid "Category bar:"
+msgstr "Barra de categorías:"
+
+msgid "All apps:"
+msgstr "Todas las aplicaciones:"
+
+msgid "Recent apps:"
+msgstr "Aplicaciones recientes:"
+
+msgid "Recent files:"
+msgstr "Archivos recientes:"
+
+msgid "Animation duration"
+msgstr "Duración de las animaciones"
+
 msgid "Open/Close:"
 msgstr "Abrir/Cerrar:"
 
 msgid "Off"
 msgstr "Desactivado"
+
+msgid "App launch:"
+msgstr "Inicio de aplicación:"
 
 msgid "Icon entrance:"
 msgstr "Entrada de iconos:"
@@ -96,8 +120,32 @@ msgstr "Efectos de cursor:"
 msgid "Folder popup:"
 msgstr "Ventana de carpeta:"
 
+msgid "Move icons:"
+msgstr "Mover iconos:"
+
+msgid "Create folder:"
+msgstr "Crear carpeta:"
+
+msgid "Add to folder:"
+msgstr "Añadir a la carpeta:"
+
+msgid "Remove from folder:"
+msgstr "Quitar de la carpeta:"
+
+msgid "Background"
+msgstr "Fondo"
+
 msgid "Background opacity:"
 msgstr "Opacidad del fondo:"
+
+msgid "Background color:"
+msgstr "Color de fondo:"
+
+msgid "Use a custom color"
+msgstr "Usar un color personalizado"
+
+msgid "Choose Background Color"
+msgstr "Elegir color de fondo"
 
 msgid "Search:"
 msgstr "Búsqueda:"
@@ -171,6 +219,26 @@ msgstr "Alfabéticamente"
 
 msgid "All Letters"
 msgstr "Todas las letras"
+
+msgid "Clear History"
+msgstr "Borrar historial"
+
+msgid "Click again to confirm"
+msgstr "Pulse de nuevo para confirmar"
+
+msgid "Recent Files"
+msgstr "Archivos recientes"
+
+msgid "%1 item"
+msgid_plural "%1 items"
+msgstr[0] "%1 elemento"
+msgstr[1] "%1 elementos"
+
+msgid "Files you open will show up here"
+msgstr "Los archivos que abra aparecerán aquí"
+
+msgid "Apps you launch will show up here"
+msgstr "Las aplicaciones que inicie aparecerán aquí"
 
 msgid "Folder"
 msgstr "Carpeta"

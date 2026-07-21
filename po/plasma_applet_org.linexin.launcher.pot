@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: linexin-launcher 1.0.0\n"
 "Report-Msgid-Bugs-To: https://github.com/petexy/kinexin-launcher/issues\n"
-"POT-Creation-Date: 2026-04-16 00:00+0000\n"
+"POT-Creation-Date: 2026-07-21 00:00+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -18,6 +18,10 @@ msgstr ""
 
 #: package/contents/ui/main.qml
 msgid "Edit Applications…"
+msgstr ""
+
+#: package/contents/config/config.qml
+msgid "General"
 msgstr ""
 
 #: package/contents/ui/ConfigGeneral.qml
@@ -104,12 +108,47 @@ msgstr ""
 msgid "System actions icon size:"
 msgstr ""
 
+#. i18n: Section heading above the font size sliders; values are a percentage of the default size
+#: package/contents/ui/ConfigGeneral.qml
+msgid "Font size"
+msgstr ""
+
+#. i18n: Font size of the category bar at the top
+#: package/contents/ui/ConfigGeneral.qml
+msgid "Category bar:"
+msgstr ""
+
+#. i18n: Font size of the labels in the All Apps grid
+#: package/contents/ui/ConfigGeneral.qml
+msgid "All apps:"
+msgstr ""
+
+#. i18n: Font size of the Recent Apps view
+#: package/contents/ui/ConfigGeneral.qml
+msgid "Recent apps:"
+msgstr ""
+
+#. i18n: Font size of the Recent Files view
+#: package/contents/ui/ConfigGeneral.qml
+msgid "Recent files:"
+msgstr ""
+
+#. i18n: Section heading above the animation sliders; values are in milliseconds
+#: package/contents/ui/ConfigGeneral.qml
+msgid "Animation duration"
+msgstr ""
+
 #: package/contents/ui/ConfigGeneral.qml
 msgid "Open/Close:"
 msgstr ""
 
+#. i18n: Shown instead of a duration when an animation is disabled
 #: package/contents/ui/ConfigGeneral.qml
 msgid "Off"
+msgstr ""
+
+#: package/contents/ui/ConfigGeneral.qml
+msgid "App launch:"
 msgstr ""
 
 #: package/contents/ui/ConfigGeneral.qml
@@ -124,8 +163,43 @@ msgstr ""
 msgid "Folder popup:"
 msgstr ""
 
+#. i18n: Duration of the icon drag/reorder animation
+#: package/contents/ui/ConfigGeneral.qml
+msgid "Move icons:"
+msgstr ""
+
+#: package/contents/ui/ConfigGeneral.qml
+msgid "Create folder:"
+msgstr ""
+
+#: package/contents/ui/ConfigGeneral.qml
+msgid "Add to folder:"
+msgstr ""
+
+#: package/contents/ui/ConfigGeneral.qml
+msgid "Remove from folder:"
+msgstr ""
+
+#. i18n: Section heading above the background opacity and color settings
+#: package/contents/ui/ConfigGeneral.qml
+msgid "Background"
+msgstr ""
+
 #: package/contents/ui/ConfigGeneral.qml
 msgid "Background opacity:"
+msgstr ""
+
+#: package/contents/ui/ConfigGeneral.qml
+msgid "Background color:"
+msgstr ""
+
+#: package/contents/ui/ConfigGeneral.qml
+msgid "Use a custom color"
+msgstr ""
+
+#. i18n: Title of the colour picker dialog
+#: package/contents/ui/ConfigGeneral.qml
+msgid "Choose Background Color"
 msgstr ""
 
 #: package/contents/ui/ConfigGeneral.qml

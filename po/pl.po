@@ -19,6 +19,9 @@ msgstr ""
 msgid "Edit Applications…"
 msgstr "Edytuj aplikacje…"
 
+msgid "General"
+msgstr "Ogólne"
+
 msgid "Panel icon:"
 msgstr "Ikona panelu:"
 
@@ -81,11 +84,32 @@ msgstr "Rozmiar ikon aktywnych aplikacji:"
 msgid "System actions icon size:"
 msgstr "Rozmiar ikon akcji systemowych:"
 
+msgid "Font size"
+msgstr "Rozmiar czcionki"
+
+msgid "Category bar:"
+msgstr "Pasek kategorii:"
+
+msgid "All apps:"
+msgstr "Wszystkie aplikacje:"
+
+msgid "Recent apps:"
+msgstr "Ostatnio używane:"
+
+msgid "Recent files:"
+msgstr "Ostatnie pliki:"
+
+msgid "Animation duration"
+msgstr "Czas trwania animacji"
+
 msgid "Open/Close:"
 msgstr "Otwieranie/Zamykanie:"
 
 msgid "Off"
 msgstr "Wył."
+
+msgid "App launch:"
+msgstr "Uruchamianie aplikacji:"
 
 msgid "Icon entrance:"
 msgstr "Wchodzenie ikon:"
@@ -96,8 +120,32 @@ msgstr "Efekty najechania:"
 msgid "Folder popup:"
 msgstr "Okienko folderu:"
 
+msgid "Move icons:"
+msgstr "Przesuwanie ikon:"
+
+msgid "Create folder:"
+msgstr "Tworzenie folderu:"
+
+msgid "Add to folder:"
+msgstr "Dodawanie do folderu:"
+
+msgid "Remove from folder:"
+msgstr "Usuwanie z folderu:"
+
+msgid "Background"
+msgstr "Tło"
+
 msgid "Background opacity:"
 msgstr "Przezroczystość tła:"
+
+msgid "Background color:"
+msgstr "Kolor tła:"
+
+msgid "Use a custom color"
+msgstr "Użyj własnego koloru"
+
+msgid "Choose Background Color"
+msgstr "Wybierz kolor tła"
 
 msgid "Search:"
 msgstr "Wyszukiwanie:"
@@ -171,6 +219,27 @@ msgstr "Alfabetycznie"
 
 msgid "All Letters"
 msgstr "Wszystkie litery"
+
+msgid "Clear History"
+msgstr "Wyczyść historię"
+
+msgid "Click again to confirm"
+msgstr "Kliknij ponownie, aby potwierdzić"
+
+msgid "Recent Files"
+msgstr "Ostatnie pliki"
+
+msgid "%1 item"
+msgid_plural "%1 items"
+msgstr[0] "%1 element"
+msgstr[1] "%1 elementy"
+msgstr[2] "%1 elementów"
+
+msgid "Files you open will show up here"
+msgstr "Otwierane pliki pojawią się tutaj"
+
+msgid "Apps you launch will show up here"
+msgstr "Uruchamiane aplikacje pojawią się tutaj"
 
 msgid "Folder"
 msgstr "Folder"

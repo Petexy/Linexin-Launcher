@@ -32,6 +32,13 @@ FocusScope {
     property bool grabFocus: false
     property bool animatedEntrance: false
 
+    // Tiles are group headings (the A-Z letters), not apps: the label *is* the
+    // content, so it is drawn large and centred instead of captioning an icon.
+    property bool groupLabels: false
+    // Multiplier on the delegate label point size, so each view that hosts a
+    // grid can follow its own font-size setting.
+    property real labelFontScale: 1.0
+
     property alias currentIndex: gridView.currentIndex
     property alias currentItem: gridView.currentItem
     property alias contentItem: gridView.contentItem
@@ -239,6 +246,8 @@ FocusScope {
 
             delegate: ItemGridDelegate {
                 showLabel: itemGrid.showLabels
+                groupLabel: itemGrid.groupLabels
+                labelFontScale: itemGrid.labelFontScale
                 animatedEntrance: itemGrid.animatedEntrance
                 entranceTriggered: itemGrid._entranceTriggered
             }

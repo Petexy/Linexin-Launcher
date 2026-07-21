@@ -8,6 +8,8 @@ PLASMOID_ID="org.linexin.launcher"
 TRANSLATION_DOMAIN="plasma_applet_${PLASMOID_ID}"
 INSTALL_DIR="$HOME/.local/share/plasma/plasmoids/$PLASMOID_ID"
 LOCALE_DIR="$HOME/.local/share/locale"
+ICON_NAME="linexin-launcher"
+ICON_DIR="$HOME/.local/share/icons/hicolor/scalable/apps"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PACKAGE_DIR="$SCRIPT_DIR/package"
 PO_DIR="$SCRIPT_DIR/po"
@@ -17,6 +19,11 @@ if [[ "${1:-}" == "--uninstall" ]]; then
     if [[ -d "$INSTALL_DIR" ]]; then
         rm -rf "$INSTALL_DIR"
         echo "Removed $INSTALL_DIR"
+    fi
+    # Remove the widget icon
+    if [[ -f "$ICON_DIR/$ICON_NAME.svg" ]]; then
+        rm -f "$ICON_DIR/$ICON_NAME.svg"
+        echo "Removed $ICON_DIR/$ICON_NAME.svg"
     fi
     # Remove translation catalogs
     for mofile in "$LOCALE_DIR"/*/LC_MESSAGES/${TRANSLATION_DOMAIN}.mo; do
@@ -40,6 +47,14 @@ fi
 # Copy package contents
 mkdir -p "$INSTALL_DIR"
 cp -r "$PACKAGE_DIR"/* "$INSTALL_DIR/"
+
+# Install the widget icon into the user icon theme so Widget Management can find it
+mkdir -p "$ICON_DIR"
+cp "$PACKAGE_DIR/contents/icons/$ICON_NAME.svg" "$ICON_DIR/$ICON_NAME.svg"
+if command -v gtk-update-icon-cache &>/dev/null; then
+    gtk-update-icon-cache -qtf "$HOME/.local/share/icons/hicolor" 2>/dev/null || true
+fi
+echo "Installed icon to $ICON_DIR/$ICON_NAME.svg"
 
 # Compile and install translations
 if [[ -d "$PO_DIR" ]] && command -v msgfmt &>/dev/null; then
