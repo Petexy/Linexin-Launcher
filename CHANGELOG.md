@@ -11,7 +11,7 @@
 
 - **Expressive, spring-driven motion throughout**, tuned toward Material 3 Expressive / Liquid Glass feel.
 - **Folders open like a shared element.** The folder popup now springs open *from the folder's position on the grid* (and collapses back into it), its app icons pop in one-by-one with a staggered spring, and the card is a frosted-glass panel with a light edge and a soft cast shadow for depth.
-- **Moving icons feels physical.** The dragged icon lifts with a spring, carries a real shape-aware drop shadow, and drifts with a gentle tilt; its original slot now **empties out completely** so the icon lives only under the pointer; a **drop-landing outline** marks the exact cell it will move into; the icons it passes part with a springier shuffle; and holding over a target switches to a filled highlight with an expanding ring pulse to signal "release to group into a folder."
+- **Live reordering with a real gap.** Dragging an icon now reflows the grid in real time: the surrounding icons **physically slide apart to open a gap** exactly where the icon will land, and the icon's original slot **fills in** so the board always previews how it will look after the drop. The dragged icon lifts with a spring, carries a real shape-aware drop shadow, drifts with a gentle tilt, and lives only under the pointer. Holding over another icon's centre still switches to a filled highlight with an expanding ring pulse to **group them into a folder** — a "cross the centre to reorder, rest on the centre to merge" model, so both gestures coexist. Live reordering works on the Dashboard and inside folders alike.
 - **The launcher opens with more presence** — a deeper depth-settle with a firmer overshoot.
 
 ### Fixed

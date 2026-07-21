@@ -126,7 +126,10 @@ Kicker.DashboardWindow {
             isOpening = true;
             isClosing = false;
             // Clear any in-flight launch zoom so an interrupted launch can't
-            // leave the board scaled up on the next open
+            // leave the board scaled up on the next open. Flush first: stopping
+            // the animation skips its onFinished, which would otherwise strand
+            // a queued app and silently swallow the launch.
+            flushPendingLaunch();
             appLaunchAnimation.stop();
             launchScale.xScale = 1.0;
             launchScale.yScale = 1.0;
@@ -135,11 +138,17 @@ Kicker.DashboardWindow {
             dashboardGrid.resetEntrance();
             allAppsView.resetEntrance();
             recentView.resetEntrance();
+            // reset() before starting: it swaps models, re-runs forceLayout and
+            // moves focus, all of which block the UI thread. Starting the
+            // animation first meant that work landed on top of the first
+            // animated frames and ate the opening — the single biggest source
+            // of the entrance feeling sluggish rather than instant.
+            reset();
             openAnimation.start();
         } else {
             rootItem.opacity = 0;
+            reset();
         }
-        reset();
     }
 
     onSearchingChanged: {
@@ -153,6 +162,22 @@ Kicker.DashboardWindow {
 
     function colorWithAlpha(color, alpha) {
         return Qt.rgba(color.r, color.g, color.b, alpha);
+    }
+
+    // Stagger delay, in ms, for the grid item at (row, col) — a diagonal wave,
+    // so the whole leading diagonal moves together rather than the grid
+    // filling one icon at a time.
+    //
+    // Everything here is a fraction of iconEntranceDuration rather than a
+    // fixed millisecond count. With fixed constants the cap became the
+    // dominant term as soon as the durations were shortened: a 190ms wave
+    // sequencing a 150ms animation means the last icon lands at 3x the
+    // duration the user actually configured, which is exactly the sluggishness
+    // the setting is supposed to control. Scaling keeps the tail at roughly
+    // 1.3x the configured duration no matter what that duration is.
+    function entranceDelay(row, col) {
+        var d = root.iconEntranceDuration;
+        return Math.min((row * 0.057 + col * 0.025) * d, d * 0.55);
     }
 
     // Routes a category-pill selection to the right view: recent rows go to
@@ -184,11 +209,30 @@ Kicker.DashboardWindow {
         closeAnimation.start();
     }
 
+    // Desktop file waiting on the launch animation. Spawning the process is
+    // held back until the zoom has finished: kstart plus the app's own startup
+    // (DBus activation, first window mapping, the compositor's map effect) all
+    // land on the same thread that drives this animation, and starting it up
+    // front stutters the dive right where it should be smoothest. A frame or
+    // two of extra latency is invisible; the hitch was not.
+    property string pendingLaunchDesktopFile: ""
+
+    function flushPendingLaunch() {
+        if (root.pendingLaunchDesktopFile === "") {
+            return;
+        }
+        var df = root.pendingLaunchDesktopFile;
+        root.pendingLaunchDesktopFile = "";
+        rootItem.launchDesktopFile(df);
+    }
+
     // Zoom-into-app launch: the whole board dives toward the activated icon and
     // dissolves, so opening an app reads distinctly from dismissing it. Falls
     // back to the plain close when the effect is switched off in settings.
     function launchWithZoom(cx, cy) {
         if (root.appLaunchDuration <= 0) {
+            // No zoom to protect — launch straight away.
+            flushPendingLaunch();
             closeWithAnimation();
             return;
         }
@@ -201,11 +245,19 @@ Kicker.DashboardWindow {
     // Convenience: zoom out from the centre of the delegate that was activated.
     function launchZoomFromItem(item) {
         if (!item) {
+            flushPendingLaunch();
             closeWithAnimation();
             return;
         }
         var c = item.mapToItem(rootItem, item.width / 2, item.height / 2);
         launchWithZoom(c.x, c.y);
+    }
+
+    // Queue the app, then play the dive; flushPendingLaunch() spawns it once
+    // the animation is done (or immediately if the effect is switched off).
+    function launchAppFromItem(desktopFile, item) {
+        root.pendingLaunchDesktopFile = desktopFile ? String(desktopFile) : "";
+        launchZoomFromItem(item);
     }
 
     function reset() {
@@ -287,13 +339,14 @@ Kicker.DashboardWindow {
         ParallelAnimation {
             id: openAnimation
 
-            // Background fades in
+            // Background fades in — front-loaded so the backdrop is essentially
+            // there by the time the eye arrives, the way Launchpad's is.
             NumberAnimation {
                 target: bgRect
                 property: "opacity"
                 from: 0
                 to: root.bgOpacity
-                duration: root.animDuration * 0.6
+                duration: Math.round(root.animDuration * 0.45)
                 easing.type: Easing.OutCubic
             }
             // Content fades in
@@ -302,28 +355,38 @@ Kicker.DashboardWindow {
                 property: "opacity"
                 from: 0
                 to: 1
-                duration: root.animDuration * 0.8
+                duration: Math.round(root.animDuration * 0.5)
                 easing.type: Easing.OutCubic
             }
-            // Depth settle: the whole overlay rises from behind the screen
-            // plane and springs into place (shared-Z, like search). A deeper
-            // start and firmer overshoot give the entrance more presence.
+            // Depth settle, Launchpad-style: the overlay resolves *down* from
+            // slightly in front of the screen plane rather than rising from
+            // behind it. Two reasons this direction and not the other:
+            //   - Coming from below 1.0 left bgRect smaller than the screen for
+            //     the whole entrance, so the desktop showed through a border.
+            //   - Settling down from larger reads as arriving; growing from
+            //     smaller reads as loading.
+            // OutExpo, not OutBack: the per-icon springs below already supply
+            // the overshoot, and stacking a board-level bounce on top of ~40
+            // icon bounces is what made this feel wobbly and slow rather than
+            // fluid. Nothing here runs past animDuration — a multiplier above
+            // 1.0 meant the user's configured duration was a floor, not a value.
             NumberAnimation {
                 target: rootItem
                 property: "scale"
-                from: 0.92
+                from: 1.06
                 to: 1
-                duration: root.animDuration * 1.25
-                easing.type: Easing.OutBack
-                easing.overshoot: 1.3
+                duration: Math.round(root.animDuration * 0.75)
+                easing.type: Easing.OutExpo
             }
-            // Content slides up from below with a fast, gliding landing
+            // A short lift under the zoom. Kept deliberately small: a long
+            // vertical slide fights the scale settle and is the part that read
+            // as "heavy" — Launchpad has no translation here at all.
             NumberAnimation {
                 target: contentArea
                 property: "anchors.verticalCenterOffset"
-                from: Kirigami.Units.gridUnit * 4
+                from: Kirigami.Units.gridUnit * 3
                 to: Kirigami.Units.gridUnit * 2
-                duration: root.animDuration * 1.1
+                duration: Math.round(root.animDuration * 0.65)
                 easing.type: Easing.OutQuint
             }
 
@@ -379,10 +442,18 @@ Kicker.DashboardWindow {
             }
         }
 
-        // App-launch "dive in": a short wind-up (InBack momentarily pulls the
-        // board back) then the whole overlay rushes into the activated icon and
-        // dissolves. Distinct from the recede-and-fade dismiss so launching an
-        // app finally feels like opening it rather than just closing the menu.
+        // App-launch "dive in": the whole overlay rushes into the activated
+        // icon and dissolves. Distinct from the recede-and-fade dismiss so
+        // launching an app feels like opening it rather than closing the menu.
+        //
+        // Easing note: this accelerates — an unhurried start that builds into
+        // a fast exit — but it must never actually rest. Easing.In* is the
+        // obvious pick and the wrong one: it leaves from *zero* velocity, so
+        // the board sits visibly frozen before it moves. This curve instead
+        // departs at ~0.5x speed (gentle, but real motion from frame one) and
+        // arrives at ~2.2x, so the dive is at its fastest exactly as it
+        // vanishes. No control point sits at y=1.0, so it never stalls at
+        // full zoom either.
         ParallelAnimation {
             id: appLaunchAnimation
 
@@ -390,27 +461,30 @@ Kicker.DashboardWindow {
                 target: launchScale; property: "xScale"
                 from: 1.0; to: 2.0
                 duration: root.appLaunchDuration
-                easing.type: Easing.InBack
-                easing.overshoot: 1.5
+                easing.type: Easing.Bezier
+                easing.bezierCurve: [0.3, 0.15, 0.75, 0.45, 1.0, 1.0]
             }
             NumberAnimation {
                 target: launchScale; property: "yScale"
                 from: 1.0; to: 2.0
                 duration: root.appLaunchDuration
-                easing.type: Easing.InBack
-                easing.overshoot: 1.5
+                easing.type: Easing.Bezier
+                easing.bezierCurve: [0.3, 0.15, 0.75, 0.45, 1.0, 1.0]
             }
-            // Holds opaque through the wind-up, then fades fast as it dives in
+            // Runs the full duration now. With an accelerating scale the last
+            // stretch is the fastest, so holding the board visible into it is
+            // what sells the "quicker out" — the earlier 80% cutoff would hide
+            // the rush and leave only the slow opening half on screen.
             NumberAnimation {
                 target: rootItem; property: "opacity"
                 from: 1; to: 0
                 duration: root.appLaunchDuration
-                easing.type: Easing.InQuint
+                easing.type: Easing.InCubic
             }
             NumberAnimation {
                 target: bgRect; property: "opacity"
                 from: root.bgOpacity; to: 0
-                duration: Math.round(root.appLaunchDuration * 0.85)
+                duration: Math.round(root.appLaunchDuration * 0.8)
                 easing.type: Easing.InCubic
             }
 
@@ -421,6 +495,7 @@ Kicker.DashboardWindow {
                 launchScale.yScale = 1.0;
                 launchScale.origin.x = rootItem.width / 2;
                 launchScale.origin.y = rootItem.height / 2;
+                root.flushPendingLaunch();
                 root.toggle();
             }
         }
@@ -428,7 +503,10 @@ Kicker.DashboardWindow {
         SequentialAnimation {
             id: gridEntranceAnimation
 
-            PauseAnimation { duration: Math.round(root.animDuration * 0.15) }
+            // No lead-in pause. The icons are the content — gating them behind
+            // the board meant the open read as two sequential animations
+            // (board, then grid) instead of one. They now start on the same
+            // frame and the per-icon stagger provides all the sequencing.
 
             ScriptAction {
                 script: {
@@ -451,6 +529,17 @@ Kicker.DashboardWindow {
             anchors.fill: parent
             color: Kirigami.Theme.backgroundColor
             opacity: root.bgOpacity
+
+            // Cancels out rootItem's launch-zoom Scale (see launchScale) so the
+            // fullscreen backdrop stays put — only the foreground content dives
+            // toward the launched icon, keeping the overlay from ever looking
+            // smaller than the screen mid-bounce.
+            transform: Scale {
+                origin.x: launchScale.origin.x
+                origin.y: launchScale.origin.y
+                xScale: 1 / launchScale.xScale
+                yScale: 1 / launchScale.yScale
+            }
         }
 
         // Focus dim — darkens the backdrop while searching so the results
@@ -463,6 +552,15 @@ Kicker.DashboardWindow {
 
             Behavior on opacity {
                 NumberAnimation { duration: root.animDuration * 0.7; easing.type: Easing.OutCubic }
+            }
+
+            // Same launch-zoom cancellation as bgRect — this dim layer reads as
+            // part of the backdrop, not foreground content.
+            transform: Scale {
+                origin.x: launchScale.origin.x
+                origin.y: launchScale.origin.y
+                xScale: 1 / launchScale.xScale
+                yScale: 1 / launchScale.yScale
             }
         }
 
@@ -2342,7 +2440,12 @@ animatedEntrance: true
                 interactive: false
 
                 property int dragFromIndex: -1
-                property int dragToIndex: -1
+                property int dragStartIndex: -1     // where the drag began, to detect a real reorder
+                // Grid-level "a drag is active" flag. The dragged item is tracked
+                // by index (dragFromIndex), not by delegate instance, so live
+                // model.move()s during the drag stay correct even as GridView
+                // re-binds delegates to data.
+                property bool dragActive: false
                 property int hoverTargetIndex: -1  // for folder merge highlight
                 property bool readyToMerge: false   // armed after holding over target 600ms
 
@@ -2404,12 +2507,13 @@ animatedEntrance: true
                                 return;
                             }
                             if (dashboardGrid._entranceTriggered) {
-                                // Stagger top-to-bottom: row is primary delay, column adds a small offset
+                                // Diagonal wave rather than a row-at-a-time march:
+                                // row * 40 held the bottom row back by most of a
+                                // second on a tall grid.
                                 // FlowLeftToRight: model index -> row = floor(i/cols), col = i%cols
                                 var ip = dashDelegate.itemIndex % root.itemsPerPage;
-                                var row = Math.floor(ip / root.columns);
-                                var col = ip % root.columns;
-                                dashEntranceTimer.interval = Math.min(row * 40 + col * 5, 400);
+                                dashEntranceTimer.interval = root.entranceDelay(
+                                    Math.floor(ip / root.columns), ip % root.columns);
                                 dashEntranceTimer.start();
                             } else {
                                 dashEntranceAnim.stop();
@@ -2432,16 +2536,18 @@ animatedEntrance: true
                             target: dashDelegate
                             property: "opacity"
                             from: 0; to: 1
-                            duration: root.iconEntranceDuration * 0.875
+                            duration: Math.round(root.iconEntranceDuration * 0.5)
                             easing.type: Easing.OutCubic
                         }
+                        // Settles down from oversized — same curve as
+                        // ItemGridDelegate so both grids enter identically.
                         NumberAnimation {
                             target: dashDelegate
                             property: "scale"
-                            from: 0.7; to: 1.0
-                            duration: root.iconEntranceDuration
-                            easing.type: Easing.OutBack
-                            easing.overshoot: 1.2
+                            from: 1.22; to: 1.0
+                            duration: Math.round(root.iconEntranceDuration * 0.75)
+                            easing.type: Easing.Bezier
+                            easing.bezierCurve: [0.12, 0.8, 0.24, 1.04, 1.0, 1.0]
                         }
                         onStarted: dashDelegate.entranceComplete = true
                     }
@@ -2500,9 +2606,9 @@ animatedEntrance: true
                         }
                     }
 
-                    // Drop-landing indicator — outlines the cell the dragged
-                    // icon will move into while reordering (distinct from the
-                    // filled merge highlight, which only shows once armed)
+                    // Drop placeholder — frames the live gap (the empty slot the
+                    // dragged icon will drop into). The surrounding icons have
+                    // already slid aside to open it, so this just marks the spot.
                     Rectangle {
                         id: dropTargetOutline
                         anchors.centerIn: parent
@@ -2512,9 +2618,8 @@ animatedEntrance: true
                         color: colorWithAlpha(Kirigami.Theme.highlightColor, 0.18)
                         border.width: 2
                         border.color: Kirigami.Theme.highlightColor
-                        opacity: (dashboardGrid.dragFromIndex !== -1
-                                  && dashboardGrid.dragToIndex === dashDelegate.itemIndex
-                                  && dashboardGrid.dragFromIndex !== dashDelegate.itemIndex
+                        opacity: (dashboardGrid.dragActive
+                                  && dashboardGrid.dragFromIndex === dashDelegate.itemIndex
                                   && !dashboardGrid.readyToMerge) ? 1.0 : 0.0
                         visible: opacity > 0.01
                         scale: (opacity > 0.01) ? 1.0 : 0.85
@@ -2532,7 +2637,9 @@ animatedEntrance: true
                         visible: !dashDelegate.isFolder
                         anchors.centerIn: parent
                         spacing: 2
-                        opacity: (dashMA.dragging && dashboardGrid.dragFromIndex === dashDelegate.itemIndex) ? 0.0 : 1.0
+                        // Hide whichever delegate currently holds the dragged item
+                        // (tracked by index, since live moves re-bind delegates)
+                        opacity: (dashboardGrid.dragActive && dashboardGrid.dragFromIndex === dashDelegate.itemIndex) ? 0.0 : 1.0
                         Behavior on opacity { NumberAnimation { duration: root.hoverEffectDuration } }
 
                         Kirigami.Icon {
@@ -2560,7 +2667,7 @@ animatedEntrance: true
                         visible: dashDelegate.isFolder
                         anchors.centerIn: parent
                         spacing: 2
-                        opacity: (dashMA.dragging && dashboardGrid.dragFromIndex === dashDelegate.itemIndex) ? 0.0 : 1.0
+                        opacity: (dashboardGrid.dragActive && dashboardGrid.dragFromIndex === dashDelegate.itemIndex) ? 0.0 : 1.0
                         Behavior on opacity { NumberAnimation { duration: root.hoverEffectDuration } }
 
                         // Mini-grid preview (2x2 icons) — same outer size as app icon for alignment
@@ -2670,26 +2777,25 @@ animatedEntrance: true
 
                         onReleased: mouse => {
                             folderMergeTimer.stop();
-                            dashboardGrid.hoverTargetIndex = -1;
 
                             if (dragging) {
                                 dragging = false;
                                 dragGhost.visible = false;
 
-                                if (dashboardGrid.dragFromIndex !== -1 && dashboardGrid.dragToIndex !== -1
-                                    && dashboardGrid.dragFromIndex !== dashboardGrid.dragToIndex) {
-                                    if (dashboardGrid.readyToMerge) {
-                                        // Merge into folder — user held long enough and released
-                                        rootItem.createFolder(dashboardGrid.dragFromIndex, dashboardGrid.dragToIndex);
-                                    } else {
-                                        // Just reorder — not held long enough for merge
-                                        dashboardModel.move(dashboardGrid.dragFromIndex, dashboardGrid.dragToIndex, 1);
-                                        rootItem.syncModelToConfig();
-                                    }
+                                if (dashboardGrid.readyToMerge && dashboardGrid.hoverTargetIndex !== -1
+                                    && dashboardGrid.hoverTargetIndex !== dashboardGrid.dragFromIndex) {
+                                    // Held over a target long enough — merge into a folder
+                                    rootItem.createFolder(dashboardGrid.dragFromIndex, dashboardGrid.hoverTargetIndex);
+                                } else if (dashboardGrid.dragFromIndex !== dashboardGrid.dragStartIndex) {
+                                    // Reordered live during the drag — persist the new order
+                                    rootItem.syncModelToConfig();
                                 }
+
                                 dashboardGrid.readyToMerge = false;
+                                dashboardGrid.hoverTargetIndex = -1;
                                 dashboardGrid.dragFromIndex = -1;
-                                dashboardGrid.dragToIndex = -1;
+                                dashboardGrid.dragStartIndex = -1;
+                                dashboardGrid.dragActive = false;
                             } else if (mouse.button === Qt.LeftButton) {
                                 if (dashDelegate.isFolder) {
                                     // Remember where this folder sits so the popup
@@ -2699,8 +2805,7 @@ animatedEntrance: true
                                     folderPopup.originY = fc.y;
                                     rootItem.openFolderIndex = dashDelegate.itemIndex;
                                 } else {
-                                    rootItem.launchDesktopFile(model.desktopFile);
-                                    launchZoomFromItem(dashDelegate);
+                                    launchAppFromItem(model.desktopFile, dashDelegate);
                                 }
                             }
                             pressX = -1;
@@ -2714,6 +2819,8 @@ animatedEntrance: true
                                 if (dx*dx + dy*dy > 400) {
                                     dragging = true;
                                     dashboardGrid.dragFromIndex = dashDelegate.itemIndex;
+                                    dashboardGrid.dragStartIndex = dashDelegate.itemIndex;
+                                    dashboardGrid.dragActive = true;
                                     if (dashDelegate.isFolder) {
                                         dragGhost.iconSource = "folder";
                                         dragGhost.labelText = model.name || i18n("Folder");
@@ -2730,18 +2837,62 @@ animatedEntrance: true
                                 dragGhost.y = globalPos.y - dragGhost.height / 2;
 
                                 var mapped = mapToItem(dashboardGrid.contentItem, mouse.x, mouse.y);
-                                var gridIdx = dashboardGrid.indexAt(mapped.x, mapped.y);
-                                var targetIdx = gridIdx;
-                                if (targetIdx !== -1 && targetIdx !== dashboardGrid.dragFromIndex) {
-                                    dashboardGrid.dragToIndex = targetIdx;
-                                    // Reset merge readiness when target changes
-                                    if (dashboardGrid.hoverTargetIndex !== targetIdx) {
+                                var overIdx = dashboardGrid.indexAt(mapped.x, mapped.y);
+                                var fromIdx = dashboardGrid.dragFromIndex;
+
+                                // Over empty space, or over the gap the dragged item
+                                // already occupies — nothing to do.
+                                if (overIdx === -1 || overIdx === fromIdx) {
+                                    dashboardGrid.hoverTargetIndex = -1;
+                                    dashboardGrid.readyToMerge = false;
+                                    folderMergeTimer.stop();
+                                    return;
+                                }
+
+                                var overItem = dashboardGrid.itemAtIndex(overIdx);
+                                if (!overItem) return;
+
+                                // Cursor position within the hovered cell (0..1)
+                                var relX = (mapped.x - overItem.x) / dashboardGrid.cellWidth;
+                                var relY = (mapped.y - overItem.y) / dashboardGrid.cellHeight;
+                                var inCenter = relX > 0.30 && relX < 0.70 && relY > 0.30 && relY < 0.70;
+
+                                // Has the cursor crossed past the hovered cell's centre,
+                                // heading away from the gap? A dot product against the
+                                // travel direction handles horizontal and row-changing
+                                // moves alike.
+                                var overCx = overItem.x + dashboardGrid.cellWidth / 2;
+                                var overCy = overItem.y + dashboardGrid.cellHeight / 2;
+                                var crossed = true;
+                                var fromItem = dashboardGrid.itemAtIndex(fromIdx);
+                                if (fromItem) {
+                                    var fromCx = fromItem.x + dashboardGrid.cellWidth / 2;
+                                    var fromCy = fromItem.y + dashboardGrid.cellHeight / 2;
+                                    var dot = (mapped.x - overCx) * (overCx - fromCx)
+                                            + (mapped.y - overCy) * (overCy - fromCy);
+                                    crossed = dot > 0;
+                                }
+
+                                if (inCenter && !crossed) {
+                                    // Dwelling on the heart of another icon → offer a
+                                    // folder merge; the gap stays put so the target is a
+                                    // stable thing to drop onto.
+                                    if (dashboardGrid.hoverTargetIndex !== overIdx) {
                                         dashboardGrid.readyToMerge = false;
-                                        dashboardGrid.hoverTargetIndex = targetIdx;
-                                        folderMergeTimer.targetIndex = targetIdx;
+                                        dashboardGrid.hoverTargetIndex = overIdx;
+                                        folderMergeTimer.targetIndex = overIdx;
                                         folderMergeTimer.restart();
                                     }
+                                } else if (crossed) {
+                                    // Passed the icon's centre → slide it aside and move
+                                    // the gap here so the grid previews the drop result.
+                                    dashboardGrid.hoverTargetIndex = -1;
+                                    dashboardGrid.readyToMerge = false;
+                                    folderMergeTimer.stop();
+                                    dashboardModel.move(fromIdx, overIdx, 1);
+                                    dashboardGrid.dragFromIndex = overIdx;
                                 } else {
+                                    // Approaching but not yet centred — hold steady
                                     dashboardGrid.hoverTargetIndex = -1;
                                     dashboardGrid.readyToMerge = false;
                                     folderMergeTimer.stop();
@@ -3024,7 +3175,8 @@ animatedEntrance: true
                     }
 
                     property int dragFromIndex: -1
-                    property int dragToIndex: -1
+                    property int dragStartIndex: -1
+                    property bool dragActive: false
 
                     width: columns * root.cellSize
                     height: {
@@ -3063,30 +3215,11 @@ animatedEntrance: true
 
                         property int itemIndex: index
 
-                        opacity: (folderItemMA.dragging && folderGrid.dragFromIndex === index) ? 0.0 : 1.0
+                        // Hide whichever delegate holds the dragged item (index-
+                        // based, so live moves inside the folder stay correct); the
+                        // emptied cell reads as the gap it will drop into.
+                        opacity: (folderGrid.dragActive && folderGrid.dragFromIndex === folderDelegate.itemIndex) ? 0.0 : 1.0
                         Behavior on opacity { NumberAnimation { duration: root.hoverEffectDuration } }
-
-                        // Drop-landing indicator for reordering inside the folder
-                        Rectangle {
-                            anchors.centerIn: parent
-                            width: root.iconSize + Kirigami.Units.largeSpacing * 2
-                            height: width
-                            radius: width / 4
-                            color: colorWithAlpha(Kirigami.Theme.highlightColor, 0.18)
-                            border.width: 2
-                            border.color: Kirigami.Theme.highlightColor
-                            opacity: (folderGrid.dragFromIndex !== -1
-                                      && folderGrid.dragToIndex === folderDelegate.itemIndex
-                                      && folderGrid.dragFromIndex !== folderDelegate.itemIndex) ? 1.0 : 0.0
-                            visible: opacity > 0.01
-                            scale: (opacity > 0.01) ? 1.0 : 0.85
-                            Behavior on opacity {
-                                NumberAnimation { duration: root.hoverEffectDuration; easing.type: Easing.OutCubic }
-                            }
-                            Behavior on scale {
-                                NumberAnimation { duration: root.hoverEffectDuration; easing.type: Easing.OutBack; easing.overshoot: 1.5 }
-                            }
-                        }
 
                         Column {
                             id: folderItemContent
@@ -3206,18 +3339,17 @@ animatedEntrance: true
                                     if (posInCard.x < 0 || posInCard.x > folderCard.width
                                         || posInCard.y < 0 || posInCard.y > folderCard.height) {
                                         rootItem.moveAppOutOfFolder(rootItem.openFolderIndex, folderGrid.dragFromIndex);
-                                    } else if (folderGrid.dragFromIndex !== -1 && folderGrid.dragToIndex !== -1
-                                               && folderGrid.dragFromIndex !== folderGrid.dragToIndex) {
-                                        rootItem.reorderInFolder(rootItem.openFolderIndex,
-                                                                 folderGrid.dragFromIndex, folderGrid.dragToIndex);
+                                    } else if (folderGrid.dragFromIndex !== folderGrid.dragStartIndex) {
+                                        // Reordered live inside the folder — persist the order
+                                        rootItem.syncModelToConfig();
                                     }
 
                                     folderGrid.dragFromIndex = -1;
-                                    folderGrid.dragToIndex = -1;
+                                    folderGrid.dragStartIndex = -1;
+                                    folderGrid.dragActive = false;
                                 } else if (mouse.button === Qt.LeftButton) {
-                                    rootItem.launchDesktopFile(model.desktopFile);
                                     rootItem.openFolderIndex = -1;
-                                    launchZoomFromItem(folderDelegate);
+                                    launchAppFromItem(model.desktopFile, folderDelegate);
                                 }
                                 pressX = -1;
                                 pressY = -1;
@@ -3230,6 +3362,8 @@ animatedEntrance: true
                                     if (dx*dx + dy*dy > 400) {
                                         dragging = true;
                                         folderGrid.dragFromIndex = index;
+                                        folderGrid.dragStartIndex = index;
+                                        folderGrid.dragActive = true;
                                         dragGhost.iconSource = model.icon;
                                         dragGhost.labelText = model.name;
                                         dragGhost.visible = true;
@@ -3240,11 +3374,31 @@ animatedEntrance: true
                                     dragGhost.x = globalPos.x - dragGhost.width / 2;
                                     dragGhost.y = globalPos.y - dragGhost.height / 2;
 
-                                    // Find reorder target within folder grid
+                                    // Live reorder: once the cursor passes another
+                                    // icon's centre, slide it aside and move the gap
+                                    // there so the folder previews the drop result.
                                     var mapped = mapToItem(folderGrid.contentItem, mouse.x, mouse.y);
-                                    var targetIdx = folderGrid.indexAt(mapped.x, mapped.y);
-                                    if (targetIdx !== -1 && targetIdx !== folderGrid.dragFromIndex) {
-                                        folderGrid.dragToIndex = targetIdx;
+                                    var overIdx = folderGrid.indexAt(mapped.x, mapped.y);
+                                    var fromIdx = folderGrid.dragFromIndex;
+                                    if (overIdx !== -1 && overIdx !== fromIdx) {
+                                        var overItem = folderGrid.itemAtIndex(overIdx);
+                                        if (overItem) {
+                                            var overCx = overItem.x + folderGrid.cellWidth / 2;
+                                            var overCy = overItem.y + folderGrid.cellHeight / 2;
+                                            var crossed = true;
+                                            var fromItem = folderGrid.itemAtIndex(fromIdx);
+                                            if (fromItem) {
+                                                var fromCx = fromItem.x + folderGrid.cellWidth / 2;
+                                                var fromCy = fromItem.y + folderGrid.cellHeight / 2;
+                                                var dot = (mapped.x - overCx) * (overCx - fromCx)
+                                                        + (mapped.y - overCy) * (overCy - fromCy);
+                                                crossed = dot > 0;
+                                            }
+                                            if (crossed && folderGrid.model && "move" in folderGrid.model) {
+                                                folderGrid.model.move(fromIdx, overIdx, 1);
+                                                folderGrid.dragFromIndex = overIdx;
+                                            }
+                                        }
                                     }
                                 }
                             }

@@ -92,11 +92,11 @@
     <!-- Animation settings -->
     <entry name="animationDuration" type="Int">
       <label>Duration of open/close animations in milliseconds.</label>
-      <default>350</default>
+      <default>150</default>
     </entry>
     <entry name="iconEntranceDuration" type="Int">
       <label>Duration of icon entrance animations in milliseconds.</label>
-      <default>400</default>
+      <default>150</default>
     </entry>
     <entry name="hoverEffectDuration" type="Int">
       <label>Duration of hover/press effect animations in milliseconds.</label>

@@ -420,7 +420,8 @@ Item {
                             return;
                         }
                         if (filesGrid._entranceTriggered) {
-                            rowEntranceTimer.interval = Math.min(fileRow.itemIndex * 30, 400);
+                            // Single column of rows, so the wave is purely vertical.
+                            rowEntranceTimer.interval = root.entranceDelay(fileRow.itemIndex, 0);
                             rowEntranceTimer.start();
                         } else {
                             rowEntranceAnim.stop();
@@ -442,16 +443,15 @@ Item {
                         target: fileRow
                         property: "opacity"
                         from: 0; to: 1
-                        duration: root.iconEntranceDuration * 0.875
+                        duration: Math.round(root.iconEntranceDuration * 0.5)
                         easing.type: Easing.OutCubic
                     }
                     NumberAnimation {
                         target: rowContent
                         property: "x"
                         from: Kirigami.Units.gridUnit; to: 0
-                        duration: root.iconEntranceDuration
-                        easing.type: Easing.OutBack
-                        easing.overshoot: 1.2
+                        duration: Math.round(root.iconEntranceDuration * 0.75)
+                        easing.type: Easing.OutQuint
                     }
                 }
 
