@@ -377,7 +377,7 @@ Item {
                     event.accepted = true;
                     if (currentIndex >= 0 && "trigger" in model) {
                         if (model.trigger(currentIndex, "", null)) {
-                            root.closeWithAnimation();
+                            root.launchZoomFromItem(filesGrid.currentItem);
                         }
                     }
                 } else if (event.key === Qt.Key_Tab) {
@@ -534,7 +534,7 @@ Item {
                             }
                         } else if ("trigger" in filesGrid.model) {
                             if (filesGrid.model.trigger(fileRow.itemIndex, "", null)) {
-                                root.closeWithAnimation();
+                                root.launchZoomFromItem(fileRow);
                             }
                         }
                     }

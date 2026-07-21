@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.2.0
+
+### Added
+
+- **Zoom-into-app launch animation.** Opening an app no longer just closes the launcher — the whole board now winds up briefly and then dives into the activated icon while dissolving, so launching finally reads as *opening the app* rather than dismissing the menu. Works from the Dashboard, the app grid, A–Z, search results, Recent Apps, Recent Files, and from inside folders (the dive originates from wherever you clicked). Falls back to the normal close when switched off.
+- **App launch** and **Move icons** duration sliders in the widget settings, so the new motion — like every other animation — is fully tunable (0 = off).
+
+### Changed
+
+- **Expressive, spring-driven motion throughout**, tuned toward Material 3 Expressive / Liquid Glass feel.
+- **Folders open like a shared element.** The folder popup now springs open *from the folder's position on the grid* (and collapses back into it), its app icons pop in one-by-one with a staggered spring, and the card is a frosted-glass panel with a light edge and a soft cast shadow for depth.
+- **Moving icons feels physical.** The dragged icon lifts with a spring, carries a real shape-aware drop shadow, and drifts with a gentle tilt; its original slot now **empties out completely** so the icon lives only under the pointer; a **drop-landing outline** marks the exact cell it will move into; the icons it passes part with a springier shuffle; and holding over a target switches to a filled highlight with an expanding ring pulse to signal "release to group into a folder."
+- **The launcher opens with more presence** — a deeper depth-settle with a firmer overshoot.
+
+### Fixed
+
+- **Folder icons no longer vanish before the folder finishes closing** — the staggered entrance was being reset the instant the popup began closing, so the card briefly looked empty as it collapsed. The icons now stay put and collapse with the card.
+
 ## 1.1.1
 
 ### Fixed

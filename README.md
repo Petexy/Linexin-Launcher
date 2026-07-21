@@ -5,7 +5,7 @@ A fully animated fullscreen plasmoid launcher for **KDE Plasma 6**, combining th
 ## Features
 
 - **Fullscreen overlay** — Takes over the screen like macOS Launchpad and GNOME Shell
-- **Butter-smooth animations** — Scale + fade open/close, staggered grid entrance, hover scale effects, press bounce feedback
+- **Expressive, spring-driven animations** — Zoom-into-app launch, folders that spring open from their position with staggered glassy pop-in, lifted and shadowed icon dragging, staggered grid entrance, hover scale and press bounce — Material 3 Expressive in feel, and every timing is tunable
 - **Application grid** — Browse all installed applications in a paginated grid
 - **Category filtering** — Filter by application categories with animated pill buttons
 - **Search** — Instant search with KRunner integration (apps, settings, bookmarks, files, calculator)
@@ -53,7 +53,7 @@ Right-click the Linexin Launcher icon in your panel → **Configure**:
 | Panel icon | Custom icon for the panel button |
 | App name format | Name only, description, or both |
 | Icon sizes | Separate controls for apps, favorites, system actions |
-| Animation duration | 100–800ms (default 350ms) |
+| Animation timings | Independent 0–1500ms sliders for open/close, app launch, icon entrance, hover effects, folder popup, and moving icons (0 = off) |
 | Background opacity | 10–95% (default 40%) |
 | Search scope | Optionally include bookmarks, files, and emails |
 

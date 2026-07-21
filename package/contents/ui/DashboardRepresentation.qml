@@ -7,6 +7,7 @@
 
 import QtQuick 2.15
 import QtQml 2.15
+import QtQuick.Effects
 
 import org.kde.kquickcontrolsaddons 2.0
 import org.kde.plasma.components as PlasmaComponents
@@ -95,6 +96,8 @@ Kicker.DashboardWindow {
     property int iconEntranceDuration: Plasmoid.configuration.iconEntranceDuration
     property int hoverEffectDuration: Plasmoid.configuration.hoverEffectDuration
     property int folderPopupDuration: Plasmoid.configuration.folderPopupDuration
+    property int appLaunchDuration: Plasmoid.configuration.appLaunchDuration
+    property int dragMoveDuration: Plasmoid.configuration.dragMoveDuration
     property real bgOpacity: Plasmoid.configuration.backgroundOpacity / 100.0
 
     // State tracking for open/close animation
@@ -122,6 +125,11 @@ Kicker.DashboardWindow {
         if (visible) {
             isOpening = true;
             isClosing = false;
+            // Clear any in-flight launch zoom so an interrupted launch can't
+            // leave the board scaled up on the next open
+            appLaunchAnimation.stop();
+            launchScale.xScale = 1.0;
+            launchScale.yScale = 1.0;
             // Reset grid items to hidden before opening so they animate in fresh
             allAppsGrid.resetEntrance();
             dashboardGrid.resetEntrance();
@@ -176,6 +184,30 @@ Kicker.DashboardWindow {
         closeAnimation.start();
     }
 
+    // Zoom-into-app launch: the whole board dives toward the activated icon and
+    // dissolves, so opening an app reads distinctly from dismissing it. Falls
+    // back to the plain close when the effect is switched off in settings.
+    function launchWithZoom(cx, cy) {
+        if (root.appLaunchDuration <= 0) {
+            closeWithAnimation();
+            return;
+        }
+        isClosing = true;
+        launchScale.origin.x = cx;
+        launchScale.origin.y = cy;
+        appLaunchAnimation.start();
+    }
+
+    // Convenience: zoom out from the centre of the delegate that was activated.
+    function launchZoomFromItem(item) {
+        if (!item) {
+            closeWithAnimation();
+            return;
+        }
+        var c = item.mapToItem(rootItem, item.width / 2, item.height / 2);
+        launchWithZoom(c.x, c.y);
+    }
+
     function reset() {
         rootItem.showingDashboard = false;
         rootItem.showingAllApps = false;
@@ -222,6 +254,17 @@ Kicker.DashboardWindow {
 
         transformOrigin: Item.Center
 
+        // Zoom-into-app launch transform — its origin is moved onto the
+        // activated icon so the whole board appears to dive into it. Composes
+        // on top of the Item.Center scale used by open/close. See launchWithZoom.
+        transform: Scale {
+            id: launchScale
+            origin.x: rootItem.width / 2
+            origin.y: rootItem.height / 2
+            xScale: 1.0
+            yScale: 1.0
+        }
+
         // Background click handler — closes the launcher when clicking empty space
         MouseArea {
             id: bgClickArea
@@ -262,16 +305,17 @@ Kicker.DashboardWindow {
                 duration: root.animDuration * 0.8
                 easing.type: Easing.OutCubic
             }
-            // Depth settle: the whole overlay rises from slightly behind the
-            // screen plane and springs into place (shared-Z, like search)
+            // Depth settle: the whole overlay rises from behind the screen
+            // plane and springs into place (shared-Z, like search). A deeper
+            // start and firmer overshoot give the entrance more presence.
             NumberAnimation {
                 target: rootItem
                 property: "scale"
-                from: 0.97
+                from: 0.92
                 to: 1
-                duration: root.animDuration * 1.2
+                duration: root.animDuration * 1.25
                 easing.type: Easing.OutBack
-                easing.overshoot: 1.1
+                easing.overshoot: 1.3
             }
             // Content slides up from below with a fast, gliding landing
             NumberAnimation {
@@ -331,6 +375,52 @@ Kicker.DashboardWindow {
 
             onFinished: {
                 isClosing = false;
+                root.toggle();
+            }
+        }
+
+        // App-launch "dive in": a short wind-up (InBack momentarily pulls the
+        // board back) then the whole overlay rushes into the activated icon and
+        // dissolves. Distinct from the recede-and-fade dismiss so launching an
+        // app finally feels like opening it rather than just closing the menu.
+        ParallelAnimation {
+            id: appLaunchAnimation
+
+            NumberAnimation {
+                target: launchScale; property: "xScale"
+                from: 1.0; to: 2.0
+                duration: root.appLaunchDuration
+                easing.type: Easing.InBack
+                easing.overshoot: 1.5
+            }
+            NumberAnimation {
+                target: launchScale; property: "yScale"
+                from: 1.0; to: 2.0
+                duration: root.appLaunchDuration
+                easing.type: Easing.InBack
+                easing.overshoot: 1.5
+            }
+            // Holds opaque through the wind-up, then fades fast as it dives in
+            NumberAnimation {
+                target: rootItem; property: "opacity"
+                from: 1; to: 0
+                duration: root.appLaunchDuration
+                easing.type: Easing.InQuint
+            }
+            NumberAnimation {
+                target: bgRect; property: "opacity"
+                from: root.bgOpacity; to: 0
+                duration: Math.round(root.appLaunchDuration * 0.85)
+                easing.type: Easing.InCubic
+            }
+
+            onFinished: {
+                isClosing = false;
+                // Reset the launch transform so the next open starts clean
+                launchScale.xScale = 1.0;
+                launchScale.yScale = 1.0;
+                launchScale.origin.x = rootItem.width / 2;
+                launchScale.origin.y = rootItem.height / 2;
                 root.toggle();
             }
         }
@@ -1189,6 +1279,8 @@ Kicker.DashboardWindow {
                 onClicked: {
                     var idx = dashContextMenu.folderIdx;
                     dashContextMenu.close();
+                    folderPopup.originX = rootItem.width / 2;
+                    folderPopup.originY = rootItem.height / 2;
                     rootItem.openFolderIndex = idx;
                     folderPopup.startRename();
                 }
@@ -1271,7 +1363,7 @@ Kicker.DashboardWindow {
             }
         }
 
-        // Drag ghost — semi-transparent icon that follows cursor during Dashboard drag
+        // Drag ghost — a lifted, softly-shadowed icon that follows the cursor
         Item {
             id: dragGhost
             visible: false
@@ -1282,6 +1374,30 @@ Kicker.DashboardWindow {
             property string iconSource: ""
             property string labelText: ""
 
+            // Pick-up lift: springs up in scale when grabbed and settles back on
+            // release, so the carried item reads as physically raised off the grid.
+            opacity: visible ? 0.92 : 0.0
+            scale: visible ? (root.dragMoveDuration > 0 ? 1.16 : 1.0) : 0.9
+            transformOrigin: Item.Center
+
+            Behavior on scale {
+                NumberAnimation {
+                    duration: Math.max(1, root.dragMoveDuration)
+                    easing.type: Easing.OutBack
+                    easing.overshoot: 2.2
+                }
+            }
+
+            // Gentle continuous tilt while carried — a touch of liquid life
+            SequentialAnimation {
+                id: dragGhostWobble
+                running: dragGhost.visible && root.dragMoveDuration > 0
+                loops: Animation.Infinite
+                onStopped: dragGhost.rotation = 0
+                NumberAnimation { target: dragGhost; property: "rotation"; from: -2.5; to: 2.5; duration: 900; easing.type: Easing.InOutSine }
+                NumberAnimation { target: dragGhost; property: "rotation"; from: 2.5; to: -2.5; duration: 900; easing.type: Easing.InOutSine }
+            }
+
             Kirigami.Icon {
                 width: root.iconSize
                 height: root.iconSize
@@ -1290,6 +1406,16 @@ Kicker.DashboardWindow {
                 anchors.top: parent.top
                 anchors.topMargin: Kirigami.Units.smallSpacing
                 animated: false
+
+                // Real, shape-aware drop shadow for depth (skipped when off)
+                layer.enabled: root.dragMoveDuration > 0
+                layer.effect: MultiEffect {
+                    shadowEnabled: true
+                    shadowColor: Qt.rgba(0, 0, 0, 0.55)
+                    shadowBlur: 0.8
+                    shadowVerticalOffset: Kirigami.Units.smallSpacing
+                    shadowHorizontalOffset: 0
+                }
             }
 
             PlasmaComponents.Label {
@@ -1303,8 +1429,6 @@ Kicker.DashboardWindow {
                 anchors.bottom: parent.bottom
                 anchors.bottomMargin: Kirigami.Units.smallSpacing
             }
-
-            opacity: 0.7
         }
 
         // Timer for folder merge readiness — hold over another icon to arm
@@ -2235,12 +2359,13 @@ animatedEntrance: true
 
                 model: dashboardModel
 
+                // Icons part fluidly to make room for the dragged one
                 moveDisplaced: Transition {
                     NumberAnimation {
                         properties: "x,y"
-                        duration: 250
+                        duration: root.dragMoveDuration
                         easing.type: Easing.OutBack
-                        easing.overshoot: 1.1
+                        easing.overshoot: 1.3
                     }
                 }
 
@@ -2329,10 +2454,12 @@ animatedEntrance: true
                         height: width
                         radius: width / 4
                         color: Kirigami.Theme.highlightColor
+                        // Only the armed (folder-merge) state fills — the plain
+                        // "drop here to reorder" hover is shown by dropTargetOutline
                         opacity: {
                             if (dashboardGrid.dragFromIndex === -1 || dashboardGrid.dragFromIndex === dashDelegate.itemIndex) return 0;
                             if (dashboardGrid.hoverTargetIndex !== dashDelegate.itemIndex) return 0;
-                            return dashboardGrid.readyToMerge ? 0.55 : 0.2;
+                            return dashboardGrid.readyToMerge ? 0.55 : 0;
                         }
                         scale: dashboardGrid.readyToMerge && dashboardGrid.hoverTargetIndex === dashDelegate.itemIndex ? 1.15 : 1.0
                         Behavior on opacity {
@@ -2345,6 +2472,58 @@ animatedEntrance: true
                                 easing.overshoot: 1.6
                             }
                         }
+
+                        // Expanding ring pulse once the merge is armed — a clear
+                        // "release to group into a folder" signal
+                        Rectangle {
+                            id: mergePulseRing
+                            anchors.centerIn: parent
+                            width: parent.width
+                            height: parent.height
+                            radius: parent.radius
+                            color: "transparent"
+                            border.width: 2
+                            border.color: Kirigami.Theme.highlightColor
+                            opacity: 0
+                            visible: root.dragMoveDuration > 0
+                                     && dashboardGrid.readyToMerge
+                                     && dashboardGrid.hoverTargetIndex === dashDelegate.itemIndex
+
+                            SequentialAnimation {
+                                running: mergePulseRing.visible
+                                loops: Animation.Infinite
+                                ParallelAnimation {
+                                    NumberAnimation { target: mergePulseRing; property: "scale"; from: 1.0; to: 1.5; duration: 700; easing.type: Easing.OutCubic }
+                                    NumberAnimation { target: mergePulseRing; property: "opacity"; from: 0.6; to: 0.0; duration: 700; easing.type: Easing.OutCubic }
+                                }
+                            }
+                        }
+                    }
+
+                    // Drop-landing indicator — outlines the cell the dragged
+                    // icon will move into while reordering (distinct from the
+                    // filled merge highlight, which only shows once armed)
+                    Rectangle {
+                        id: dropTargetOutline
+                        anchors.centerIn: parent
+                        width: root.iconSize + Kirigami.Units.largeSpacing * 2
+                        height: width
+                        radius: width / 4
+                        color: colorWithAlpha(Kirigami.Theme.highlightColor, 0.18)
+                        border.width: 2
+                        border.color: Kirigami.Theme.highlightColor
+                        opacity: (dashboardGrid.dragFromIndex !== -1
+                                  && dashboardGrid.dragToIndex === dashDelegate.itemIndex
+                                  && dashboardGrid.dragFromIndex !== dashDelegate.itemIndex
+                                  && !dashboardGrid.readyToMerge) ? 1.0 : 0.0
+                        visible: opacity > 0.01
+                        scale: (opacity > 0.01) ? 1.0 : 0.85
+                        Behavior on opacity {
+                            NumberAnimation { duration: root.hoverEffectDuration; easing.type: Easing.OutCubic }
+                        }
+                        Behavior on scale {
+                            NumberAnimation { duration: root.hoverEffectDuration; easing.type: Easing.OutBack; easing.overshoot: 1.5 }
+                        }
                     }
 
                     // === APP DELEGATE ===
@@ -2353,7 +2532,8 @@ animatedEntrance: true
                         visible: !dashDelegate.isFolder
                         anchors.centerIn: parent
                         spacing: 2
-                        opacity: (dashMA.dragging && dashboardGrid.dragFromIndex === dashDelegate.itemIndex) ? 0.3 : 1.0
+                        opacity: (dashMA.dragging && dashboardGrid.dragFromIndex === dashDelegate.itemIndex) ? 0.0 : 1.0
+                        Behavior on opacity { NumberAnimation { duration: root.hoverEffectDuration } }
 
                         Kirigami.Icon {
                             width: root.iconSize
@@ -2380,7 +2560,8 @@ animatedEntrance: true
                         visible: dashDelegate.isFolder
                         anchors.centerIn: parent
                         spacing: 2
-                        opacity: (dashMA.dragging && dashboardGrid.dragFromIndex === dashDelegate.itemIndex) ? 0.3 : 1.0
+                        opacity: (dashMA.dragging && dashboardGrid.dragFromIndex === dashDelegate.itemIndex) ? 0.0 : 1.0
+                        Behavior on opacity { NumberAnimation { duration: root.hoverEffectDuration } }
 
                         // Mini-grid preview (2x2 icons) — same outer size as app icon for alignment
                         Item {
@@ -2511,10 +2692,15 @@ animatedEntrance: true
                                 dashboardGrid.dragToIndex = -1;
                             } else if (mouse.button === Qt.LeftButton) {
                                 if (dashDelegate.isFolder) {
+                                    // Remember where this folder sits so the popup
+                                    // can spring open from it (shared-element feel)
+                                    var fc = dashDelegate.mapToItem(rootItem, dashDelegate.width / 2, dashDelegate.height / 2);
+                                    folderPopup.originX = fc.x;
+                                    folderPopup.originY = fc.y;
                                     rootItem.openFolderIndex = dashDelegate.itemIndex;
                                 } else {
                                     rootItem.launchDesktopFile(model.desktopFile);
-                                    closeWithAnimation();
+                                    launchZoomFromItem(dashDelegate);
                                 }
                             }
                             pressX = -1;
@@ -2672,34 +2858,57 @@ animatedEntrance: true
             property int lastOpenedFolderIndex: -1
             property int displayedFolderIndex: folderPopupOpen ? rootItem.openFolderIndex : lastOpenedFolderIndex
 
+            // Where the card should grow from / collapse into — set to the
+            // opened folder's on-screen centre so the popup reads as that folder
+            // expanding (a shared-element transition). Defaults to screen centre.
+            property real originX: width / 2
+            property real originY: height / 2
+
+            // Drives the staggered pop-in of the folder's app icons
+            property bool contentEntranceTriggered: false
+
             onFolderPopupOpenChanged: {
                 if (folderPopupOpen) {
                     lastOpenedFolderIndex = rootItem.openFolderIndex;
+                    contentEntranceTriggered = false;
                     folderOpenAnim.start();
+                    // Defer one cycle so the freshly-created icon delegates exist
+                    // before their entrance is armed.
+                    Qt.callLater(function() { folderPopup.contentEntranceTriggered = true; });
                 } else {
+                    // Keep the icons visible while the card collapses — resetting
+                    // the entrance here made the folder look empty mid-close.
                     folderCloseAnim.start();
                 }
             }
 
-            // Card pops open with a spring settle; closing is quicker and
-            // clean (no bounce) so dismissal feels immediate
+            // Card springs open from the folder's position with a settle; closing
+            // collapses back toward it, quicker and clean so dismissal feels snappy
             ParallelAnimation {
                 id: folderOpenAnim
-                NumberAnimation { target: folderDimBg; property: "opacity"; from: 0; to: 0.4; duration: root.folderPopupDuration; easing.type: Easing.OutCubic }
+                NumberAnimation { target: folderDimBg; property: "opacity"; from: 0; to: 0.45; duration: root.folderPopupDuration; easing.type: Easing.OutCubic }
                 NumberAnimation {
-                    target: folderCard; property: "scale"
-                    from: 0.85; to: 1.0
-                    duration: root.folderPopupDuration * 1.3
+                    target: folderCardScale; property: "xScale"
+                    from: 0.35; to: 1.0
+                    duration: root.folderPopupDuration * 1.4
                     easing.type: Easing.OutBack
-                    easing.overshoot: 1.15
+                    easing.overshoot: 1.25
                 }
-                NumberAnimation { target: folderCard; property: "opacity"; from: 0; to: 1.0; duration: root.folderPopupDuration * 0.8; easing.type: Easing.OutCubic }
+                NumberAnimation {
+                    target: folderCardScale; property: "yScale"
+                    from: 0.35; to: 1.0
+                    duration: root.folderPopupDuration * 1.4
+                    easing.type: Easing.OutBack
+                    easing.overshoot: 1.25
+                }
+                NumberAnimation { target: folderCard; property: "opacity"; from: 0; to: 1.0; duration: root.folderPopupDuration * 0.7; easing.type: Easing.OutCubic }
             }
 
             ParallelAnimation {
                 id: folderCloseAnim
-                NumberAnimation { target: folderDimBg; property: "opacity"; from: 0.4; to: 0; duration: root.folderPopupDuration * 0.8; easing.type: Easing.InCubic }
-                NumberAnimation { target: folderCard; property: "scale"; from: 1.0; to: 0.9; duration: root.folderPopupDuration * 0.7; easing.type: Easing.InCubic }
+                NumberAnimation { target: folderDimBg; property: "opacity"; from: 0.45; to: 0; duration: root.folderPopupDuration * 0.8; easing.type: Easing.InCubic }
+                NumberAnimation { target: folderCardScale; property: "xScale"; from: 1.0; to: 0.6; duration: root.folderPopupDuration * 0.7; easing.type: Easing.InCubic }
+                NumberAnimation { target: folderCardScale; property: "yScale"; from: 1.0; to: 0.6; duration: root.folderPopupDuration * 0.7; easing.type: Easing.InCubic }
                 NumberAnimation { target: folderCard; property: "opacity"; from: 1.0; to: 0; duration: root.folderPopupDuration * 0.7; easing.type: Easing.InCubic }
                 onFinished: folderPopup.lastOpenedFolderIndex = -1
             }
@@ -2725,18 +2934,35 @@ animatedEntrance: true
                 }
             }
 
-            // Folder card
-            Rectangle {
+            // Folder card — frosted glass panel with soft depth
+            Kirigami.ShadowedRectangle {
                 id: folderCard
                 anchors.centerIn: parent
                 width: Math.min(parent.width * 0.5, folderGrid.columns * root.cellSize + Kirigami.Units.largeSpacing * 4)
                 height: folderNameEdit.height + folderGrid.height + Kirigami.Units.largeSpacing * 4
-                radius: 20
+                radius: 22
                 color: colorWithAlpha(Kirigami.Theme.backgroundColor, 0.85)
 
+                // Glass edge + a soft cast shadow lift the card off the backdrop
+                border.width: 1
+                border.color: colorWithAlpha(Kirigami.Theme.textColor, 0.12)
+                shadow.size: Kirigami.Units.gridUnit * 2.5
+                shadow.color: Qt.rgba(0, 0, 0, 0.5)
+                shadow.yOffset: Kirigami.Units.smallSpacing * 1.5
+
                 visible: folderPopup.visible
-                scale: 0.8
                 opacity: 0
+
+                // Grows from / collapses into the folder's on-screen position.
+                // Origin is the folder centre expressed in this card's local
+                // coordinates, clamped so it always lands inside the card.
+                transform: Scale {
+                    id: folderCardScale
+                    origin.x: Math.max(0, Math.min(folderCard.width, folderPopup.originX - folderCard.x))
+                    origin.y: Math.max(0, Math.min(folderCard.height, folderPopup.originY - folderCard.y))
+                    xScale: 1.0
+                    yScale: 1.0
+                }
 
                 // Folder name (editable on click)
                 TextInput {
@@ -2815,9 +3041,9 @@ animatedEntrance: true
                     moveDisplaced: Transition {
                         NumberAnimation {
                             properties: "x,y"
-                            duration: 250
+                            duration: root.dragMoveDuration
                             easing.type: Easing.OutBack
-                            easing.overshoot: 1.1
+                            easing.overshoot: 1.3
                         }
                     }
 
@@ -2837,12 +3063,90 @@ animatedEntrance: true
 
                         property int itemIndex: index
 
-                        opacity: (folderItemMA.dragging && folderGrid.dragFromIndex === index) ? 0.3 : 1.0
-                        Behavior on opacity { NumberAnimation { duration: 100 } }
+                        opacity: (folderItemMA.dragging && folderGrid.dragFromIndex === index) ? 0.0 : 1.0
+                        Behavior on opacity { NumberAnimation { duration: root.hoverEffectDuration } }
+
+                        // Drop-landing indicator for reordering inside the folder
+                        Rectangle {
+                            anchors.centerIn: parent
+                            width: root.iconSize + Kirigami.Units.largeSpacing * 2
+                            height: width
+                            radius: width / 4
+                            color: colorWithAlpha(Kirigami.Theme.highlightColor, 0.18)
+                            border.width: 2
+                            border.color: Kirigami.Theme.highlightColor
+                            opacity: (folderGrid.dragFromIndex !== -1
+                                      && folderGrid.dragToIndex === folderDelegate.itemIndex
+                                      && folderGrid.dragFromIndex !== folderDelegate.itemIndex) ? 1.0 : 0.0
+                            visible: opacity > 0.01
+                            scale: (opacity > 0.01) ? 1.0 : 0.85
+                            Behavior on opacity {
+                                NumberAnimation { duration: root.hoverEffectDuration; easing.type: Easing.OutCubic }
+                            }
+                            Behavior on scale {
+                                NumberAnimation { duration: root.hoverEffectDuration; easing.type: Easing.OutBack; easing.overshoot: 1.5 }
+                            }
+                        }
 
                         Column {
+                            id: folderItemContent
                             anchors.centerIn: parent
                             spacing: 2
+
+                            // Staggered pop-in as the folder springs open
+                            opacity: root.folderPopupDuration > 0 ? 0 : 1
+                            scale: root.folderPopupDuration > 0 ? 0.5 : 1.0
+                            transformOrigin: Item.Center
+
+                            Component.onCompleted: {
+                                if (root.folderPopupDuration <= 0 || folderPopup.contentEntranceTriggered) {
+                                    opacity = 1;
+                                    scale = 1.0;
+                                }
+                            }
+
+                            Connections {
+                                target: folderPopup
+                                function onContentEntranceTriggeredChanged() {
+                                    if (root.folderPopupDuration <= 0) {
+                                        folderItemContent.opacity = 1;
+                                        folderItemContent.scale = 1.0;
+                                        return;
+                                    }
+                                    if (folderPopup.contentEntranceTriggered) {
+                                        folderItemEntranceTimer.start();
+                                    } else {
+                                        folderItemEntranceAnim.stop();
+                                        folderItemEntranceTimer.stop();
+                                        folderItemContent.opacity = 0;
+                                        folderItemContent.scale = 0.5;
+                                    }
+                                }
+                            }
+
+                            Timer {
+                                id: folderItemEntranceTimer
+                                interval: Math.min(folderDelegate.itemIndex * 35, 350)
+                                repeat: false
+                                onTriggered: folderItemEntranceAnim.start()
+                            }
+
+                            ParallelAnimation {
+                                id: folderItemEntranceAnim
+                                NumberAnimation {
+                                    target: folderItemContent; property: "opacity"
+                                    from: 0; to: 1
+                                    duration: root.folderPopupDuration * 0.9
+                                    easing.type: Easing.OutCubic
+                                }
+                                NumberAnimation {
+                                    target: folderItemContent; property: "scale"
+                                    from: 0.5; to: 1.0
+                                    duration: root.folderPopupDuration * 1.2
+                                    easing.type: Easing.OutBack
+                                    easing.overshoot: 1.6
+                                }
+                            }
 
                             Kirigami.Icon {
                                 width: root.iconSize
@@ -2913,7 +3217,7 @@ animatedEntrance: true
                                 } else if (mouse.button === Qt.LeftButton) {
                                     rootItem.launchDesktopFile(model.desktopFile);
                                     rootItem.openFolderIndex = -1;
-                                    closeWithAnimation();
+                                    launchZoomFromItem(folderDelegate);
                                 }
                                 pressX = -1;
                                 pressY = -1;

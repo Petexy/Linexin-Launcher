@@ -203,7 +203,7 @@ Item {
 
             if ("trigger" in GridView.view.model) {
                 GridView.view.model.trigger(index, "", null);
-                root.closeWithAnimation();
+                root.launchZoomFromItem(item);
             }
 
             itemGrid.itemActivated(index, "", null);

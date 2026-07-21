@@ -427,7 +427,7 @@ FocusScope {
                     if (hadPressedItem && gridView.currentItem === pressedItem) {
                         if ("trigger" in gridView.model) {
                             if (gridView.model.trigger(pressedItem.itemIndex, "", null)) {
-                                root.closeWithAnimation();
+                                root.launchZoomFromItem(pressedItem);
                             } else {
                                 itemGrid.itemChildActivated(pressedItem.itemIndex);
                             }

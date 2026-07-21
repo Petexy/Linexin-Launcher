@@ -34,6 +34,8 @@ KCM.SimpleKCM {
     property alias cfg_iconEntranceDuration: iconEntranceSlider.value
     property alias cfg_hoverEffectDuration: hoverEffectSlider.value
     property alias cfg_folderPopupDuration: folderPopupSlider.value
+    property alias cfg_appLaunchDuration: appLaunchSlider.value
+    property alias cfg_dragMoveDuration: dragMoveSlider.value
     property alias cfg_backgroundOpacity: bgOpacitySlider.value
 
     property alias cfg_useExtraRunners: useExtraRunners.checked
@@ -223,6 +225,24 @@ KCM.SimpleKCM {
         }
 
         RowLayout {
+            Kirigami.FormData.label: i18n("App launch:")
+            spacing: Kirigami.Units.smallSpacing
+
+            Slider {
+                id: appLaunchSlider
+                from: 0
+                to: 1500
+                stepSize: 50
+                Layout.preferredWidth: Kirigami.Units.gridUnit * 12
+            }
+
+            Label {
+                text: appLaunchSlider.value === 0 ? i18n("Off") : appLaunchSlider.value + " ms"
+                Layout.minimumWidth: Kirigami.Units.gridUnit * 3
+            }
+        }
+
+        RowLayout {
             Kirigami.FormData.label: i18n("Icon entrance:")
             spacing: Kirigami.Units.smallSpacing
 
@@ -272,6 +292,24 @@ KCM.SimpleKCM {
 
             Label {
                 text: folderPopupSlider.value === 0 ? i18n("Off") : folderPopupSlider.value + " ms"
+                Layout.minimumWidth: Kirigami.Units.gridUnit * 3
+            }
+        }
+
+        RowLayout {
+            Kirigami.FormData.label: i18n("Move icons:")
+            spacing: Kirigami.Units.smallSpacing
+
+            Slider {
+                id: dragMoveSlider
+                from: 0
+                to: 1500
+                stepSize: 50
+                Layout.preferredWidth: Kirigami.Units.gridUnit * 12
+            }
+
+            Label {
+                text: dragMoveSlider.value === 0 ? i18n("Off") : dragMoveSlider.value + " ms"
                 Layout.minimumWidth: Kirigami.Units.gridUnit * 3
             }
         }
@@ -329,6 +367,8 @@ KCM.SimpleKCM {
                 iconEntranceSlider.value = 400;
                 hoverEffectSlider.value = 150;
                 folderPopupSlider.value = 250;
+                appLaunchSlider.value = 450;
+                dragMoveSlider.value = 280;
                 bgOpacitySlider.value = 40;
                 useExtraRunners.checked = true;
             }

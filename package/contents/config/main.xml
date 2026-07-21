@@ -106,6 +106,14 @@
       <label>Duration of folder popup animations in milliseconds.</label>
       <default>250</default>
     </entry>
+    <entry name="appLaunchDuration" type="Int">
+      <label>Duration of the zoom-into-app launch animation in milliseconds.</label>
+      <default>450</default>
+    </entry>
+    <entry name="dragMoveDuration" type="Int">
+      <label>Duration of icon drag, reorder, and drop animations in milliseconds.</label>
+      <default>280</default>
+    </entry>
     <entry name="backgroundOpacity" type="Int">
       <label>Background opacity percentage (0-100).</label>
       <default>40</default>
