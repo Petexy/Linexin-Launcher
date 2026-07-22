@@ -258,5 +258,8 @@ msgstr "वर्तमान गतिविधि पर"
 msgid "Show in Favorites"
 msgstr "पसंदीदा में दिखाएँ"
 
+msgid "Edit Application…"
+msgstr "अनुप्रयोग संपादित करें…"
+
 msgid "Uninstall or Manage Add-Ons…"
 msgstr "ऐड-ऑन अनइंस्टॉल या प्रबंधित करें…"

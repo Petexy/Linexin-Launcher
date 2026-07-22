@@ -258,5 +258,8 @@ msgstr "Sur l'activité en cours"
 msgid "Show in Favorites"
 msgstr "Afficher dans les favoris"
 
+msgid "Edit Application…"
+msgstr "Modifier l'application…"
+
 msgid "Uninstall or Manage Add-Ons…"
 msgstr "Désinstaller ou gérer les extensions…"

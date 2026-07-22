@@ -257,5 +257,8 @@ msgstr "在当前活动上"
 msgid "Show in Favorites"
 msgstr "在收藏中显示"
 
+msgid "Edit Application…"
+msgstr "编辑应用程序…"
+
 msgid "Uninstall or Manage Add-Ons…"
 msgstr "卸载或管理附加组件…"

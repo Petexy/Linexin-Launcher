@@ -222,12 +222,10 @@ msgstr ""
 msgid "Add to Dashboard"
 msgstr ""
 
-#: package/contents/ui/DashboardRepresentation.qml
 #: package/contents/ui/code/tools.js
 msgid "Remove from Favorites"
 msgstr ""
 
-#: package/contents/ui/DashboardRepresentation.qml
 #: package/contents/ui/code/tools.js
 msgid "Add to Favorites"
 msgstr ""
@@ -349,6 +347,10 @@ msgstr ""
 
 #: package/contents/ui/code/tools.js
 msgid "Show in Favorites"
+msgstr ""
+
+#: package/contents/ui/DashboardRepresentation.qml
+msgid "Edit Application…"
 msgstr ""
 
 #: package/contents/ui/DashboardRepresentation.qml

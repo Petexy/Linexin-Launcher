@@ -259,5 +259,8 @@ msgstr "На текущей комнате"
 msgid "Show in Favorites"
 msgstr "Показать в избранном"
 
+msgid "Edit Application…"
+msgstr "Редактировать приложение…"
+
 msgid "Uninstall or Manage Add-Ons…"
 msgstr "Удалить или управлять дополнениями…"

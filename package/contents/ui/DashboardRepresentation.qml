@@ -140,24 +140,27 @@ Kicker.DashboardWindow {
 
     backgroundColor: "transparent"
 
-    // -- Always on top --
-    // Kicker's DashboardWindow is a bare frameless QQuickWindow: it asks for no
-    // stacking hint at all and only re-takes focus on X11. KWin puts a
-    // fullscreen window in the active layer *only while it is the active
-    // window*, so the moment the launcher loses activation it drops to the
-    // normal layer and the panel — or any window raised from a second screen,
-    // a global shortcut, or an app that maps itself — draws straight over it.
+    // -- Dismiss on focus loss --
+    // Kicker's DashboardWindow is a bare frameless fullscreen QQuickWindow.
+    // There is no dependable way to pin it above other windows on Wayland:
+    // core Wayland has no raise / keep-above a normal window can ask for
+    // (raise() is an X11-only no-op there), and the one lever left —
+    // re-asserting activation — is exactly what KWin denies, because Alt-Tab
+    // hands the activation serial to the window you switched *to*, so our
+    // requestActivate() is downgraded to "demands attention" and ignored. The
+    // fullscreen launcher was then left mapped but stranded behind whatever
+    // took focus and, still `visible`, took two button presses to recover (the
+    // first merely toggled the hidden window shut).
     //
-    // Two mechanisms, because no single one covers both sessions:
-    //   - Qt.WindowStaysOnTopHint is honoured on X11 and XWayland.
-    //   - Wayland has no keep-above request a client can make, so we re-assert
-    //     activation instead, which is what puts us back in the active layer.
-    //     requestActivate() goes out as an xdg-activation request; KWin treats
-    //     plasmashell as privileged in window management and grants it a token
-    //     stamped with the current interaction serial, so this is honoured
-    //     rather than downgraded to "demands attention".
+    // So we do what Kickoff and the stock Application Dashboard do: the moment
+    // focus genuinely leaves the launcher, we close it. A single button press
+    // reopens it, on X11 and Wayland alike. (Covering the window you Alt-Tabbed
+    // *to* would be meaningless for a fullscreen overlay anyway.)
     //
-    // The timer that drives this lives in rootItem, not here: DashboardWindow's
+    // stayOnTop() still runs once on open, to pull activation onto the launcher
+    // so search-as-you-type works and it starts out in front.
+    //
+    // The timer that debounces this lives in rootItem, not here: DashboardWindow's
     // default property is `mainItem`, a single Item, so any unnamed child
     // declared at this level is an assignment to it.
     function stayOnTop() {
@@ -166,13 +169,14 @@ Kicker.DashboardWindow {
     }
 
     onActiveChanged: {
-        // isClosing covers the dismiss and app-launch animations: the window is
-        // still mapped there, and stealing focus back would rip it away from
-        // the app we just launched.
-        if (active || !visible || isClosing) {
+        // Ignore deactivations we must not close on: isClosing/isOpening cover
+        // the open, dismiss and app-launch animations (where focus legitimately
+        // moves), and our own context menus open as transient children that
+        // keep the window `active`, so a right-click never trips this.
+        if (active || !visible || isClosing || isOpening) {
             return;
         }
-        restackTimer.restart();
+        deactivateTimer.restart();
     }
 
     onKeyEscapePressed: {
@@ -407,18 +411,19 @@ Kicker.DashboardWindow {
             yScale: 1.0
         }
 
-        // Re-asserts root.stayOnTop() shortly after the launcher loses
-        // activation. Deferred by a frame or two rather than run straight from
-        // onActiveChanged: activation flips twice in quick succession while one
-        // of our own popups is being mapped, and reacting to the first of those
-        // would fight Qt's own focus handling.
+        // Debounces focus loss into a dismiss. Deferred by a frame or two
+        // rather than run straight from onActiveChanged: activation can flip
+        // twice in quick succession while one of our own popups is being
+        // mapped, and the intermediate frame reports the launcher inactive
+        // before the popup settles as its transient child. Re-checking active
+        // here lets those transient flips resolve without closing the launcher.
         Timer {
-            id: restackTimer
+            id: deactivateTimer
             interval: 50
             repeat: false
             onTriggered: {
-                if (root.visible && !root.active && !root.isClosing) {
-                    root.stayOnTop();
+                if (root.visible && !root.active && !root.isClosing && !root.isOpening) {
+                    root.closeWithAnimation();
                 }
             }
         }
@@ -732,7 +737,7 @@ Kicker.DashboardWindow {
         PlasmaExtras.Menu {
             id: appContextMenu
             property string appUrl: ""
-            property string appFavoriteId: ""
+            property bool appCanEdit: false
             property string appName: ""
             property string appIcon: ""
             property var appModel: null
@@ -753,34 +758,6 @@ Kicker.DashboardWindow {
                         rootItem.removeFromDashboard(url);
                     } else {
                         rootItem.addToDashboard(url, name, ic);
-                    }
-                }
-            }
-
-            PlasmaExtras.MenuItem { separator: true; visible: appContextMenu.appFavoriteId !== "" }
-
-            PlasmaExtras.MenuItem {
-                id: favMenuItem
-                text: {
-                    if (appContextMenu.appFavoriteId && globalFavorites && globalFavorites.isFavorite(appContextMenu.appFavoriteId)) {
-                        return i18n("Remove from Favorites");
-                    }
-                    return i18n("Add to Favorites");
-                }
-                icon: {
-                    if (appContextMenu.appFavoriteId && globalFavorites && globalFavorites.isFavorite(appContextMenu.appFavoriteId)) {
-                        return "bookmark-remove";
-                    }
-                    return "bookmark-new";
-                }
-                visible: appContextMenu.appFavoriteId !== ""
-                onClicked: {
-                    var favId = appContextMenu.appFavoriteId;
-                    appContextMenu.close();
-                    if (globalFavorites.isFavorite(favId)) {
-                        globalFavorites.removeFavorite(favId);
-                    } else {
-                        globalFavorites.addFavorite(favId);
                     }
                 }
             }
@@ -814,6 +791,25 @@ Kicker.DashboardWindow {
             }
 
             PlasmaExtras.MenuItem { separator: true; visible: appContextMenu.appUrl !== "" }
+
+            PlasmaExtras.MenuItem {
+                text: i18n("Edit Application…")
+                icon: "kmenuedit"
+                visible: appContextMenu.appCanEdit
+                onClicked: {
+                    var srcModel = appContextMenu.appModel;
+                    var row = appContextMenu.appIndex;
+                    appContextMenu.close();
+                    closeWithAnimation();
+                    // Hand off to the Kicker model rather than spawning kmenuedit
+                    // ourselves — it resolves the entry's menu ID from KService,
+                    // which is what kmenuedit expects and is not always the plain
+                    // .desktop file name.
+                    if (srcModel && "trigger" in srcModel) {
+                        srcModel.trigger(row, "editApplication", null);
+                    }
+                }
+            }
 
             PlasmaExtras.MenuItem {
                 text: i18n("Uninstall or Manage Add-Ons…")
@@ -888,8 +884,43 @@ Kicker.DashboardWindow {
                 appContextMenu.close();
                 dockContextMenu.close();
                 dashContextMenu.close();
-                folderItemContextMenu.close();
             }
+        }
+
+        // Whether the Kicker model offers a given action for this row. Used to
+        // gate menu entries on the same rules Plasma itself applies — e.g. the
+        // editApplication action only exists for real .desktop services, and
+        // only when menu editing is permitted and kmenuedit is installed, so
+        // runner hits (calculator answers, files, …) drop out on their own.
+        function hasAction(model, actionId) {
+            var actions = ("actionList" in model) ? model.actionList : null;
+            if (!actions) {
+                return false;
+            }
+            for (var i = 0; i < actions.length; i++) {
+                if (actions[i].actionId === actionId) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // Ask the panel's icontasks widget which apps it currently has pinned.
+        // The reply arrives asynchronously on the given checker, which flips the
+        // Pin/Unpin label on the menu it belongs to.
+        function queryPinState(checker, desktopFile) {
+            if (!desktopFile) {
+                return;
+            }
+            var script = "var ps=panels();for(var i=0;i<ps.length;i++){"
+                + "var ws=ps[i].widgets();"
+                + "for(var j=0;j<ws.length;j++){"
+                + "if(ws[j].type==='org.kde.plasma.icontasks'){"
+                + "ws[j].currentConfigGroup=['General'];"
+                + "print(ws[j].readConfig('launchers'));break;}}}";
+            var cmd = "qdbus6 org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript \""
+                + script + "\" #" + Date.now();
+            checker.connectSource(cmd);
         }
 
         function openAppContextMenu(delegateItem, model, mx, my) {
@@ -905,25 +936,15 @@ Kicker.DashboardWindow {
                 }
             }
             appContextMenu.appUrl = appUrl;
-            appContextMenu.appFavoriteId = model.favoriteId || "";
             appContextMenu.appName = model.display || "";
             appContextMenu.appIcon = model.decoration || "";
             appContextMenu.appModel = delegateItem.GridView ? delegateItem.GridView.view.model : null;
             appContextMenu.appIndex = model.index;
+            appContextMenu.appCanEdit = hasAction(model, "editApplication");
             appContextMenu.visualParent = delegateItem;
             // Check if this app is currently pinned in icontasks
             pinMenuItem.isPinned = false;
-            if (appUrl !== "") {
-                var script = "var ps=panels();for(var i=0;i<ps.length;i++){"
-                    + "var ws=ps[i].widgets();"
-                    + "for(var j=0;j<ws.length;j++){"
-                    + "if(ws[j].type==='org.kde.plasma.icontasks'){"
-                    + "ws[j].currentConfigGroup=['General'];"
-                    + "print(ws[j].readConfig('launchers'));break;}}}";
-                var cmd = "qdbus6 org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript \""
-                    + script + "\" #" + Date.now();
-                pinChecker.connectSource(cmd);
-            }
+            queryPinState(pinChecker, appUrl);
             appContextMenu.visualParent = delegateItem;
             menuOpenTimer.openMenu(appContextMenu, mx, my);
         }
@@ -1095,6 +1116,7 @@ Kicker.DashboardWindow {
             // Check if already in dashboard (pinned or in folders)
             for (var i = 0; i < dashboardApps.length; i++) {
                 var item = dashboardApps[i];
+                if (item.type === "auto") continue;  // a slot, not a pin
                 if (item.desktopFile === desktopFile) return;
                 if (item.type === "folder" && item.apps) {
                     for (var j = 0; j < item.apps.length; j++) {
@@ -1121,23 +1143,30 @@ Kicker.DashboardWindow {
         }
 
         function removeFromDashboard(desktopFile) {
-            var apps = dashboardApps.filter(function(a) { return a.desktopFile !== desktopFile; });
+            // Unpinning does not have to mean leaving. With all apps shown the
+            // tile stays put as an auto one, so the grid keeps its shape and only
+            // the pin goes away.
+            var keepSlot = Plasmoid.configuration.showAllAppsInDashboard;
+            var apps = [];
+            for (var i = 0; i < dashboardApps.length; i++) {
+                var item = dashboardApps[i];
+                if (item.type !== "folder" && item.desktopFile === desktopFile) {
+                    if (keepSlot && item.type !== "auto") {
+                        apps.push({type: "auto", desktopFile: desktopFile});
+                    }
+                    continue;
+                }
+                apps.push(item);
+            }
             dashboardApps = apps;
             saveDashboard();
             dashboardModel.reload();
         }
 
-        // Where a working-array index lands once the model is rebuilt.
-        // saveFromArray() persists only pinned entries and reload() re-appends
-        // them ahead of the auto ones, so any auto item sitting earlier in the
-        // array drops out of the count.
-        function pinnedIndexOf(arr, idx) {
-            var n = 0;
-            for (var i = 0; i < idx && i < arr.length; i++) {
-                if (arr[i].type !== "auto") n++;
-            }
-            return n;
-        }
+        // A working-array index survives the rebuild unchanged: saveFromArray()
+        // writes every slot, auto ones included, and reload() lays them back down
+        // in the same order. So the plans below can hand out working-array
+        // indices as the positions the rebuilt grid will use.
 
         // --- Folder mutations: plan / commit ---
         //
@@ -1168,7 +1197,7 @@ Kicker.DashboardWindow {
             var survives = (apps[folderIndex] && apps[folderIndex].type === "folder");
             return {
                 apps: apps,
-                folderIndex: survives ? pinnedIndexOf(apps, folderIndex) : -1,
+                folderIndex: survives ? folderIndex : -1,
                 folderSurvives: survives
             };
         }
@@ -1218,8 +1247,8 @@ Kicker.DashboardWindow {
             var survives = (apps[folderIndex] && apps[folderIndex].type === "folder");
             return {
                 apps: apps,
-                landIndex: pinnedIndexOf(apps, insertIdx),
-                folderIndex: survives ? pinnedIndexOf(apps, folderIndex) : -1,
+                landIndex: insertIdx,
+                folderIndex: survives ? folderIndex : -1,
                 folderSurvives: survives
             };
         }
@@ -1288,7 +1317,7 @@ Kicker.DashboardWindow {
                 isNew = true;
             }
 
-            return {apps: apps, folderIndex: pinnedIndexOf(apps, keptIdx), isNew: isNew};
+            return {apps: apps, folderIndex: keptIdx, isNew: isNew};
         }
 
         function renameFolder(folderIndex, newName) {
@@ -1337,6 +1366,14 @@ Kicker.DashboardWindow {
             folderFx.fly(icon, fromX, fromY, to.x, to.y, dur, 1.0, false);
         }
 
+        // Menu-driven counterpart to ejectToDashboard. A menu click has no drag
+        // release point to carry on from, so the icon sets off from the cell it
+        // occupies in the folder.
+        function ejectFromFolder(folderIndex, appIndex, icon) {
+            var from = cellCentre(folderGrid, appIndex);
+            ejectToDashboard(folderIndex, appIndex, icon, from.x, from.y);
+        }
+
         // Takes an app out of the folder and off the dashboard entirely. Nothing
         // survives to land, so the icon is flung clear of the card and dissipates.
         function dismissFromFolder(folderIndex, appIndex, appDesktopFile, icon) {
@@ -1375,6 +1412,7 @@ Kicker.DashboardWindow {
         function isDashboardApp(desktopFile) {
             for (var i = 0; i < dashboardApps.length; i++) {
                 var item = dashboardApps[i];
+                if (item.type === "auto") continue;  // a slot, not a pin
                 if (item.desktopFile === desktopFile) return true;
                 if (item.type === "folder" && item.apps) {
                     for (var j = 0; j < item.apps.length; j++) {
@@ -1407,31 +1445,39 @@ Kicker.DashboardWindow {
             return arr;
         }
 
-        // Save from a working array: persist only non-auto items, then reload
-        function saveFromArray(arr) {
-            var pinned = [];
-            for (var i = 0; i < arr.length; i++) {
-                var item = arr[i];
-                if (item.type === "auto") continue;
-                if (item.type === "folder") {
-                    pinned.push({type: "folder", name: item.name, apps: item.apps});
-                } else {
-                    pinned.push({desktopFile: item.desktopFile, name: item.name, icon: item.icon});
-                }
+        // Turn one working-array/model item into its persisted form. Auto items
+        // are kept as bare placeholders: they carry no name or icon of their own
+        // (the all-apps model owns those, and they can change under us) and exist
+        // only to remember the slot the user left the app in.
+        function persistedItem(item) {
+            if (item.type === "folder") {
+                return {type: "folder", name: item.name, apps: item.apps};
             }
-            dashboardApps = pinned;
+            if (item.type === "auto") {
+                return {type: "auto", desktopFile: item.desktopFile};
+            }
+            return {desktopFile: item.desktopFile, name: item.name, icon: item.icon};
+        }
+
+        // Save from a working array, preserving the arrangement, then reload
+        function saveFromArray(arr) {
+            var saved = [];
+            for (var i = 0; i < arr.length; i++) {
+                saved.push(persistedItem(arr[i]));
+            }
+            dashboardApps = saved;
             saveDashboard();
             dashboardModel.reload();
             folderRevision++;
         }
 
-        // Serialize dashboardModel back to the apps array (handles folders)
-        // Skips auto items so only user-pinned items are persisted
+        // Serialize dashboardModel back to the apps array (handles folders).
+        // Auto items are written out as placeholders so a reorder that moves one
+        // of them survives the next reload.
         function syncModelToConfig() {
             var apps = [];
             for (var i = 0; i < dashboardModel.count; i++) {
                 var item = dashboardModel.get(i);
-                if (item.type === "auto") continue;
                 if (item.type === "folder") {
                     var folderApps = [];
                     // ListModel stores the sub-array as a ListModel too
@@ -1444,7 +1490,7 @@ Kicker.DashboardWindow {
                     }
                     apps.push({type: "folder", name: item.name, apps: folderApps});
                 } else {
-                    apps.push({desktopFile: item.desktopFile, name: item.name, icon: item.icon});
+                    apps.push(rootItem.persistedItem(item));
                 }
             }
             rootItem.dashboardApps = apps;
@@ -1456,6 +1502,19 @@ Kicker.DashboardWindow {
 
             function reload() {
                 clear();
+
+                // Auto items the all-apps model can currently supply, by url.
+                var available = {};
+                var haveAuto = Plasmoid.configuration.showAllAppsInDashboard
+                               && allAppsHelper.active && allAppsHelper.count > 0;
+                if (haveAuto) {
+                    for (var i = 0; i < allAppsHelper.count; i++) {
+                        var obj = allAppsHelper.objectAt(i);
+                        if (obj && obj.appUrl) available[obj.appUrl] = obj;
+                    }
+                }
+
+                var existing = {};
                 var apps = rootItem.dashboardApps;
                 for (var i = 0; i < apps.length; i++) {
                     var item = apps[i];
@@ -1467,26 +1526,29 @@ Kicker.DashboardWindow {
                         var folderApps = item.apps || [];
                         for (var j = 0; j < folderApps.length; j++) {
                             get(count - 1).apps.append(folderApps[j]);
+                            existing[folderApps[j].desktopFile] = true;
                         }
+                    } else if (item.type === "auto") {
+                        // A placeholder: the app is not pinned, it just holds the
+                        // slot the user put it in. It only reappears while the
+                        // all-apps model still lists it, so uninstalled apps fall
+                        // out instead of lingering as dead tiles.
+                        var src = available[item.desktopFile];
+                        if (!src) continue;
+                        append({type: "auto", desktopFile: src.appUrl, name: src.appName,
+                                icon: src.appIcon, apps: []});
+                        existing[item.desktopFile] = true;
                     } else {
                         append({type: "app", desktopFile: item.desktopFile,
                                 name: item.name, icon: item.icon, apps: []});
+                        existing[item.desktopFile] = true;
                     }
                 }
 
-                // Append auto items from all-apps model when setting is on
-                if (Plasmoid.configuration.showAllAppsInDashboard && allAppsHelper.active && allAppsHelper.count > 0) {
-                    var existing = {};
-                    for (var i = 0; i < count; i++) {
-                        var item = get(i);
-                        if (item.type === "folder") {
-                            for (var j = 0; j < item.apps.count; j++) {
-                                existing[item.apps.get(j).desktopFile] = true;
-                            }
-                        } else if (item.desktopFile) {
-                            existing[item.desktopFile] = true;
-                        }
-                    }
+                // Everything else the all-apps model knows about — newly installed
+                // apps, and the whole list on a dashboard that has never been
+                // arranged — goes on the end in the model's own order.
+                if (haveAuto) {
                     for (var i = 0; i < allAppsHelper.count; i++) {
                         var obj = allAppsHelper.objectAt(i);
                         if (!obj || !obj.appUrl || existing[obj.appUrl]) continue;
@@ -1494,6 +1556,12 @@ Kicker.DashboardWindow {
                                 icon: obj.appIcon, apps: []});
                     }
                 }
+
+                // clear() above scrolled the grid back to the top. Put it back on
+                // the page the user is looking at now, in the same frame as the
+                // rebuild: the deferred sync on countChanged is a frame or two
+                // late, which is long enough for page one to flash past.
+                dashboardView.syncPageOffset();
             }
 
             Component.onCompleted: reload()
@@ -1576,24 +1644,53 @@ Kicker.DashboardWindow {
             property string desktopFile: ""
             property bool isFolder: false
             property bool isAutoItem: false
+            // Set when the menu was opened on an app inside an open folder
+            // rather than on a dashboard tile. Everything below the first
+            // group applies to both, so the two share this one menu.
+            property bool isFolderItem: false
             property int folderIdx: -1
+            property int appIndex: -1
             property string appName: ""
             property string appIcon: ""
 
+            // Puts the app back on the dashboard alongside the folder it was in.
+            PlasmaExtras.MenuItem {
+                text: i18n("Remove from Folder")
+                icon: "edit-delete-remove"
+                visible: dashContextMenu.isFolderItem
+                onClicked: {
+                    var fi = dashContextMenu.folderIdx;
+                    var ai = dashContextMenu.appIndex;
+                    var ic = dashContextMenu.appIcon;
+                    dashContextMenu.close();
+                    rootItem.ejectFromFolder(fi, ai, ic);
+                }
+            }
+            // Drops the app off the dashboard outright. From inside a folder that
+            // means leaving the folder and the board in one go, rather than
+            // surfacing onto the dashboard first.
             PlasmaExtras.MenuItem {
                 text: i18n("Remove from Dashboard")
                 icon: "edit-delete-remove"
                 visible: !dashContextMenu.isFolder && !dashContextMenu.isAutoItem
                 onClicked: {
+                    var fi = dashContextMenu.folderIdx;
+                    var ai = dashContextMenu.appIndex;
                     var df = dashContextMenu.desktopFile;
+                    var ic = dashContextMenu.appIcon;
+                    var fromFolder = dashContextMenu.isFolderItem;
                     dashContextMenu.close();
-                    rootItem.removeFromDashboard(df);
+                    if (fromFolder) {
+                        rootItem.dismissFromFolder(fi, ai, df, ic);
+                    } else {
+                        rootItem.removeFromDashboard(df);
+                    }
                 }
             }
             PlasmaExtras.MenuItem {
                 text: i18n("Pin to Dashboard")
                 icon: "pin"
-                visible: !dashContextMenu.isFolder && dashContextMenu.isAutoItem
+                visible: !dashContextMenu.isFolder && dashContextMenu.isAutoItem && !dashContextMenu.isFolderItem
                 onClicked: {
                     var df = dashContextMenu.desktopFile;
                     dashContextMenu.close();
@@ -1630,36 +1727,6 @@ Kicker.DashboardWindow {
             PlasmaExtras.MenuItem { separator: true; visible: !dashContextMenu.isFolder && dashContextMenu.desktopFile !== "" }
 
             PlasmaExtras.MenuItem {
-                id: dashFavMenuItem
-                text: {
-                    var favId = dashContextMenu.desktopFile;
-                    if (favId && globalFavorites && globalFavorites.isFavorite(favId)) {
-                        return i18n("Remove from Favorites");
-                    }
-                    return i18n("Add to Favorites");
-                }
-                icon: {
-                    var favId = dashContextMenu.desktopFile;
-                    if (favId && globalFavorites && globalFavorites.isFavorite(favId)) {
-                        return "bookmark-remove";
-                    }
-                    return "bookmark-new";
-                }
-                visible: !dashContextMenu.isFolder && dashContextMenu.desktopFile !== ""
-                onClicked: {
-                    var favId = dashContextMenu.desktopFile;
-                    dashContextMenu.close();
-                    if (globalFavorites.isFavorite(favId)) {
-                        globalFavorites.removeFavorite(favId);
-                    } else {
-                        globalFavorites.addFavorite(favId);
-                    }
-                }
-            }
-
-            PlasmaExtras.MenuItem { separator: true; visible: !dashContextMenu.isFolder && dashContextMenu.desktopFile !== "" }
-
-            PlasmaExtras.MenuItem {
                 id: dashPinMenuItem
                 property bool isPinned: false
                 text: isPinned ? i18n("Unpin from Task Manager") : i18n("Pin to Task Manager")
@@ -1685,6 +1752,23 @@ Kicker.DashboardWindow {
             }
 
             PlasmaExtras.MenuItem { separator: true; visible: !dashContextMenu.isFolder && dashContextMenu.desktopFile !== "" }
+
+            PlasmaExtras.MenuItem {
+                text: i18n("Edit Application…")
+                icon: "kmenuedit"
+                visible: !dashContextMenu.isFolder && dashContextMenu.desktopFile !== ""
+                    && Plasmoid.immutability !== PlasmaCore.Types.SystemImmutable
+                onClicked: {
+                    // Dashboard tiles are backed by plain config entries, not by a
+                    // Kicker model row, so there is no editApplication action to
+                    // trigger — go through the same ProcessRunner the plasmoid's
+                    // own "Edit Applications…" action uses.
+                    var menuId = dashContextMenu.desktopFile.replace("applications:", "");
+                    dashContextMenu.close();
+                    closeWithAnimation();
+                    processRunner.runMenuEditor(menuId);
+                }
+            }
 
             PlasmaExtras.MenuItem {
                 text: i18n("Uninstall or Manage Add-Ons…")
@@ -2956,6 +3040,12 @@ animatedEntrance: true
                 currentPage = Math.max(0, Math.min(currentPage, pageCount - 1));
                 targetPage = Math.max(0, Math.min(targetPage, pageCount - 1));
                 if (pageAnimation.running) return;
+                // Lay the grid out before scrolling it. Straight after a rebuild
+                // the GridView's own geometry still belongs to the cleared model
+                // — there is only one page of content as far as it is concerned —
+                // so an offset assigned now is clamped back to the top and the
+                // first page shows through until the next layout pass.
+                dashboardGrid.forceLayout();
                 dashboardGrid.contentY = currentPage * dashboardGrid.height;
             }
 
@@ -3616,6 +3706,8 @@ animatedEntrance: true
 
                         onPressed: mouse => {
                             if (mouse.button === Qt.RightButton) {
+                                dashContextMenu.isFolderItem = false;
+                                dashContextMenu.appIndex = -1;
                                 if (dashDelegate.isFolder) {
                                     dashContextMenu.isFolder = true;
                                     dashContextMenu.isAutoItem = false;
@@ -3632,18 +3724,7 @@ animatedEntrance: true
                                     dashContextMenu.appIcon = model.icon || "";
                                     // Check pin status
                                     dashPinMenuItem.isPinned = false;
-                                    var df = model.desktopFile;
-                                    if (df) {
-                                        var script = "var ps=panels();for(var i=0;i<ps.length;i++){"
-                                            + "var ws=ps[i].widgets();"
-                                            + "for(var j=0;j<ws.length;j++){"
-                                            + "if(ws[j].type==='org.kde.plasma.icontasks'){"
-                                            + "ws[j].currentConfigGroup=['General'];"
-                                            + "print(ws[j].readConfig('launchers'));break;}}}";
-                                        var cmd = "qdbus6 org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript \""
-                                            + script + "\" #" + Date.now();
-                                        dashPinChecker.connectSource(cmd);
-                                    }
+                                    rootItem.queryPinState(dashPinChecker, model.desktopFile);
                                 }
                                 dashContextMenu.visualParent = dashDelegate;
                                 menuOpenTimer.openMenu(dashContextMenu, mouse.x, mouse.y);
@@ -4321,12 +4402,21 @@ animatedEntrance: true
 
                             onPressed: mouse => {
                                 if (mouse.button === Qt.RightButton) {
-                                    folderItemContextMenu.appDesktopFile = model.desktopFile;
-                                    folderItemContextMenu.appIcon = model.icon || "";
-                                    folderItemContextMenu.appIndex = folderDelegate.itemIndex;
-                                    folderItemContextMenu.folderIdx = rootItem.openFolderIndex;
-                                    folderItemContextMenu.visualParent = folderDelegate;
-                                    menuOpenTimer.openMenu(folderItemContextMenu, mouse.x, mouse.y);
+                                    // Apps inside a folder get the same menu as a
+                                    // dashboard tile — only the first entry differs,
+                                    // removing from the folder rather than the board.
+                                    dashContextMenu.isFolder = false;
+                                    dashContextMenu.isAutoItem = false;
+                                    dashContextMenu.isFolderItem = true;
+                                    dashContextMenu.folderIdx = rootItem.openFolderIndex;
+                                    dashContextMenu.appIndex = folderDelegate.itemIndex;
+                                    dashContextMenu.desktopFile = model.desktopFile;
+                                    dashContextMenu.appName = model.name || "";
+                                    dashContextMenu.appIcon = model.icon || "";
+                                    dashPinMenuItem.isPinned = false;
+                                    rootItem.queryPinState(dashPinChecker, model.desktopFile);
+                                    dashContextMenu.visualParent = folderDelegate;
+                                    menuOpenTimer.openMenu(dashContextMenu, mouse.x, mouse.y);
                                 } else {
                                     pressX = mouse.x;
                                     pressY = mouse.y;
@@ -4425,27 +4515,6 @@ animatedEntrance: true
                             }
                         }
                     }
-                }
-            }
-        }
-
-        PlasmaExtras.Menu {
-            id: folderItemContextMenu
-            property string appDesktopFile: ""
-            property string appIcon: ""
-            property int appIndex: -1
-            property int folderIdx: -1
-
-            PlasmaExtras.MenuItem {
-                text: i18n("Remove from Folder")
-                icon: "edit-delete-remove"
-                onClicked: {
-                    var fi = folderItemContextMenu.folderIdx;
-                    var df = folderItemContextMenu.appDesktopFile;
-                    var ai = folderItemContextMenu.appIndex;
-                    var ic = folderItemContextMenu.appIcon;
-                    folderItemContextMenu.close();
-                    rootItem.dismissFromFolder(fi, ai, df, ic);
                 }
             }
         }

@@ -260,5 +260,8 @@ msgstr "Op huidige activiteit"
 msgid "Show in Favorites"
 msgstr "Tonen in favorieten"
 
+msgid "Edit Application…"
+msgstr "Programma bewerken…"
+
 msgid "Uninstall or Manage Add-Ons…"
 msgstr "Uitbreidingen beheren of verwijderen…"
