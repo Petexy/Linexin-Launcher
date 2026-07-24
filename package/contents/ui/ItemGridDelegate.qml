@@ -37,6 +37,24 @@ Item {
 
     Accessible.role: Accessible.MenuItem
     Accessible.name: model.display
+    Accessible.onPressAction: activate()
+
+    function activate() {
+        // Press animation
+        iconItem.pressedScale = true;
+        pressReleaseTimer.start();
+
+        var view = GridView.view;
+        if (view && view.model && "trigger" in view.model) {
+            if (view.model.trigger(item.itemIndex, "", null)) {
+                root.launchZoomFromItem(item);
+            } else {
+                itemGrid.itemChildActivated(item.itemIndex);
+            }
+        }
+
+        itemGrid.itemActivated(item.itemIndex, "", null);
+    }
 
     // =============================================
     //     STAGGERED ENTRANCE ANIMATION
@@ -223,19 +241,10 @@ Item {
         if (event.key === Qt.Key_Menu) {
             event.accepted = true;
             rootItem.openAppContextMenu(item, model, 0, 0);
-        } else if ((event.key === Qt.Key_Enter || event.key === Qt.Key_Return)) {
+        } else if (event.key === Qt.Key_Enter || event.key === Qt.Key_Return
+                   || event.key === Qt.Key_Space) {
             event.accepted = true;
-
-            // Press animation
-            iconItem.pressedScale = true;
-            pressReleaseTimer.start();
-
-            if ("trigger" in GridView.view.model) {
-                GridView.view.model.trigger(index, "", null);
-                root.launchZoomFromItem(item);
-            }
-
-            itemGrid.itemActivated(index, "", null);
+            activate();
         }
     }
 

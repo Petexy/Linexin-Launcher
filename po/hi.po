@@ -45,6 +45,36 @@ msgstr "सभी ऐप्स"
 msgid "Recent Apps"
 msgstr "हाल के ऐप्स"
 
+msgid "Application names:"
+msgstr "अनुप्रयोग नाम:"
+
+msgid "Name"
+msgstr "नाम"
+
+msgid "Description"
+msgstr "विवरण"
+
+msgid "Name (Description)"
+msgstr "नाम (विवरण)"
+
+msgid "Description (Name)"
+msgstr "विवरण (नाम)"
+
+msgid "Application sorting:"
+msgstr "अनुप्रयोग क्रमबद्धता:"
+
+msgid "Sort applications alphabetically"
+msgstr "अनुप्रयोगों को वर्णानुक्रम में क्रमबद्ध करें"
+
+msgid "Recent categories:"
+msgstr "हाल की श्रेणियाँ:"
+
+msgid "Show Recent Apps"
+msgstr "हाल के अनुप्रयोग दिखाएँ"
+
+msgid "Show Recent Files"
+msgstr "हाल की फ़ाइलें दिखाएँ"
+
 msgid "Apps icon size:"
 msgstr "ऐप आइकन आकार:"
 

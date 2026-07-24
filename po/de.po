@@ -45,6 +45,36 @@ msgstr "Alle Anwendungen"
 msgid "Recent Apps"
 msgstr "Zuletzt verwendet"
 
+msgid "Application names:"
+msgstr "Anwendungsnamen:"
+
+msgid "Name"
+msgstr "Name"
+
+msgid "Description"
+msgstr "Beschreibung"
+
+msgid "Name (Description)"
+msgstr "Name (Beschreibung)"
+
+msgid "Description (Name)"
+msgstr "Beschreibung (Name)"
+
+msgid "Application sorting:"
+msgstr "Anwendungssortierung:"
+
+msgid "Sort applications alphabetically"
+msgstr "Anwendungen alphabetisch sortieren"
+
+msgid "Recent categories:"
+msgstr "Kategorien für zuletzt verwendete Elemente:"
+
+msgid "Show Recent Apps"
+msgstr "Zuletzt verwendete Anwendungen anzeigen"
+
+msgid "Show Recent Files"
+msgstr "Zuletzt verwendete Dateien anzeigen"
+
 msgid "Apps icon size:"
 msgstr "Symbolgröße der Anwendungen:"
 

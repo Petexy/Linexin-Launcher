@@ -17,6 +17,8 @@ import org.kde.kirigami 2.20 as Kirigami
 import org.kde.plasma.private.kicker 0.1 as Kicker
 import org.kde.plasma.plasma5support 2.0 as P5Support
 
+import "code/icons.js" as Icons
+
 
 PlasmoidItem {
     id: kicker
@@ -40,7 +42,7 @@ PlasmoidItem {
     property QtObject globalFavorites: rootModel.favoritesModel
     property QtObject systemFavorites: rootModel.systemFavoritesModel
 
-    Plasmoid.icon: Plasmoid.configuration.useCustomButtonImage ? Plasmoid.configuration.customButtonImage : Plasmoid.configuration.icon
+    Plasmoid.icon: Plasmoid.configuration.useCustomButtonImage ? Plasmoid.configuration.customButtonImage : Icons.resolve(Plasmoid.configuration.icon)
 
     onSystemFavoritesChanged: {
         if (systemFavorites) {
@@ -76,8 +78,8 @@ PlasmoidItem {
         showAllApps: true
         showAllAppsCategorized: true
         showTopLevelItems: false
-        showRecentApps: true
-        showRecentDocs: true
+        showRecentApps: Plasmoid.configuration.showRecentApps
+        showRecentDocs: Plasmoid.configuration.showRecentDocs
         recentOrdering: Plasmoid.configuration.recentOrdering
 
         onShowRecentAppsChanged: {

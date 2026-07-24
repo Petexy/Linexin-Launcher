@@ -68,8 +68,8 @@ FocusScope {
     }
 
     onDropEnabledChanged: {
-        if (!dropEnabled && "dropPlaceHolderIndex" in model) {
-            model.dropPlaceHolderIndex = -1;
+        if (!dropEnabled && model && "dropPlaceholderIndex" in model) {
+            model.dropPlaceholderIndex = -1;
         }
     }
 
@@ -79,24 +79,33 @@ FocusScope {
         }
     }
 
+    // GridView can briefly be narrower than one cell (or have a zero cell
+    // width during layout). Keep every navigation calculation on one safe
+    // column count so it can never produce Infinity or NaN.
+    function columnCount() {
+        if (itemGrid.cellWidth <= 0) {
+            return 1;
+        }
+        return Math.max(1, Math.floor(itemGrid.width / itemGrid.cellWidth));
+    }
+
     function currentRow() {
         if (currentIndex === -1) return -1;
-        return Math.floor(currentIndex / Math.floor(width / itemGrid.cellWidth));
+        return Math.floor(currentIndex / columnCount());
     }
 
     function currentCol() {
         if (currentIndex === -1) return -1;
-        return currentIndex - (currentRow() * Math.floor(width / itemGrid.cellWidth));
+        return currentIndex % columnCount();
     }
 
     function lastRow() {
-        var columns = Math.floor(width / itemGrid.cellWidth);
-        return Math.ceil(count / columns) - 1;
+        return Math.ceil(count / columnCount()) - 1;
     }
 
     function tryActivate(row, col) {
         if (count) {
-            var columns = Math.floor(width / itemGrid.cellWidth);
+            var columns = columnCount();
             var rows = Math.ceil(count / columns);
             row = Math.min(row, rows - 1);
             col = Math.min(col, columns - 1);
@@ -116,7 +125,12 @@ FocusScope {
         height: itemGrid.height
 
         onPositionChanged: event => {
-            if (!itemGrid.dropEnabled || gridView.animating || !kicker.dragSource) {
+            if (!itemGrid.dropEnabled || !itemGrid.model
+                    || gridView.animating || !kicker.dragSource) {
+                return;
+            }
+
+            if (itemGrid.cellWidth <= 0) {
                 return;
             }
 
@@ -127,7 +141,7 @@ FocusScope {
             if (item) {
                 if (kicker.dragSource.parent === gridView.contentItem) {
                     if (item !== kicker.dragSource) {
-                        item.GridView.view.model.moveRow(dragSource.itemIndex, item.itemIndex);
+                        item.GridView.view.model.moveRow(kicker.dragSource.itemIndex, item.itemIndex);
                     }
                 } else if (kicker.dragSource.GridView.view.model.favoritesModel === itemGrid.model
                            && !itemGrid.model.isFavorite(kicker.dragSource.favoriteId)) {
@@ -152,7 +166,7 @@ FocusScope {
         }
 
         onExited: {
-            if ("dropPlaceholderIndex" in itemGrid.model) {
+            if (itemGrid.model && "dropPlaceholderIndex" in itemGrid.model) {
                 itemGrid.model.dropPlaceholderIndex = -1;
                 gridView.currentIndex = -1;
             }
@@ -197,7 +211,12 @@ FocusScope {
             // When content fits, disable interactive so wheel events propagate to parent Flickable
             interactive: contentHeight > height
 
-            ScrollBar.vertical: ScrollBar {}
+            ScrollBar.horizontal: ScrollBar {
+                policy: itemGrid.horizontalScrollBarPolicy
+            }
+            ScrollBar.vertical: ScrollBar {
+                policy: itemGrid.verticalScrollBarPolicy
+            }
 
             snapMode: GridView.NoSnap
             flickDeceleration: 1500
@@ -321,7 +340,7 @@ FocusScope {
             }
 
             Keys.onRightPressed: event => {
-                var columns = Math.floor(width / cellWidth);
+                var columns = itemGrid.columnCount();
                 if (itemGrid.currentCol() !== columns - 1 && currentIndex !== count - 1) {
                     event.accepted = true;
                     moveCurrentIndexRight();
@@ -343,7 +362,7 @@ FocusScope {
             Keys.onDownPressed: event => {
                 if (itemGrid.currentRow() < itemGrid.lastRow()) {
                     event.accepted = true;
-                    var columns = Math.floor(itemGrid.width / cellWidth);
+                    var columns = itemGrid.columnCount();
                     var newIndex = currentIndex + columns;
                     currentIndex = Math.min(newIndex, gridView.count - 1);
                     positionViewAtIndex(currentIndex, GridView.Visible);
@@ -367,7 +386,7 @@ FocusScope {
         MouseArea {
             id: hoverArea
 
-            width: itemGrid.width - Kirigami.Units.gridUnit
+            width: Math.max(0, itemGrid.width - Kirigami.Units.gridUnit)
             height: itemGrid.height
 
             property int pressX: -1

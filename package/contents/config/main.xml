@@ -8,7 +8,7 @@
   <group name="General">
     <entry name="icon" type="String">
       <label>The name of the icon to use for the compact representation.</label>
-      <default>start-here-kde-symbolic</default>
+      <default>windowshuffler-symbolic</default>
     </entry>
     <entry name="useCustomButtonImage" type="Bool">
       <label>Whether to use a custom image instead of an icon.</label>
@@ -22,10 +22,6 @@
     <entry name="appNameFormat" type="Int">
       <label>Application name format: 0=Name, 1=Description, 2=Name (Description), 3=Description (Name)</label>
       <default>0</default>
-    </entry>
-    <entry name="limitDepth" type="Bool">
-      <label>Flatten top-level menu categories.</label>
-      <default>false</default>
     </entry>
     <entry name="alphaSort" type="Bool">
       <label>Sort menu contents alphabetically.</label>
@@ -48,6 +44,7 @@
       <label>Whether favorites have been ported to KActivitiesStats.</label>
       <default>false</default>
     </entry>
+    <!-- Read internally by Kicker's AppsModel/AppEntry action handling. -->
     <entry name="hiddenApplications" type="StringList">
       <label>List of hidden application menu IDs.</label>
       <default></default>
@@ -70,11 +67,6 @@
       <label>Additional KRunner plugin IDs.</label>
       <default>krunner_shell,krunner_bookmarksrunner,baloosearch,locations</default>
     </entry>
-    <entry name="alignResultsToBottom" type="Bool">
-      <label>Align search results to the bottom.</label>
-      <default>true</default>
-    </entry>
-
     <!-- Icon sizes -->
     <entry name="appsIconSize" type="Enum">
       <label>Application icon size.</label>
@@ -167,8 +159,8 @@
     </entry>
 
     <entry name="defaultCategory" type="Int">
-      <label>Default category to show on launch: -2=Dashboard, -1=All Apps, 0+=rootModel row index.</label>
-      <default>0</default>
+      <label>Default category to show on launch: -4=Recent Files, -3=Recent Apps, -2=Dashboard, -1=All Apps.</label>
+      <default>-3</default>
     </entry>
 
     <entry name="showActiveApps" type="Bool">

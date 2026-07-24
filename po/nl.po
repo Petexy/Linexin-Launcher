@@ -47,6 +47,36 @@ msgstr "Alle programma's"
 msgid "Recent Apps"
 msgstr "Onlangs gebruikt"
 
+msgid "Application names:"
+msgstr "Programmanamen:"
+
+msgid "Name"
+msgstr "Naam"
+
+msgid "Description"
+msgstr "Beschrijving"
+
+msgid "Name (Description)"
+msgstr "Naam (beschrijving)"
+
+msgid "Description (Name)"
+msgstr "Beschrijving (naam)"
+
+msgid "Application sorting:"
+msgstr "Programmasortering:"
+
+msgid "Sort applications alphabetically"
+msgstr "Programma's alfabetisch sorteren"
+
+msgid "Recent categories:"
+msgstr "Recente categorieën:"
+
+msgid "Show Recent Apps"
+msgstr "Recente programma's tonen"
+
+msgid "Show Recent Files"
+msgstr "Recente bestanden tonen"
+
 msgid "Apps icon size:"
 msgstr "Pictogramgrootte:"
 

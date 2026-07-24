@@ -45,6 +45,36 @@ msgstr "所有应用"
 msgid "Recent Apps"
 msgstr "最近使用"
 
+msgid "Application names:"
+msgstr "应用程序名称："
+
+msgid "Name"
+msgstr "名称"
+
+msgid "Description"
+msgstr "描述"
+
+msgid "Name (Description)"
+msgstr "名称（描述）"
+
+msgid "Description (Name)"
+msgstr "描述（名称）"
+
+msgid "Application sorting:"
+msgstr "应用程序排序："
+
+msgid "Sort applications alphabetically"
+msgstr "按名称排序应用程序"
+
+msgid "Recent categories:"
+msgstr "最近使用类别："
+
+msgid "Show Recent Apps"
+msgstr "显示最近使用的应用程序"
+
+msgid "Show Recent Files"
+msgstr "显示最近使用的文件"
+
 msgid "Apps icon size:"
 msgstr "应用图标大小："
 

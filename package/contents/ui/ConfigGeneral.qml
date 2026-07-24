@@ -16,6 +16,8 @@ import org.kde.ksvg 1.0 as KSvg
 import org.kde.plasma.plasmoid 2.0
 import org.kde.kcmutils as KCM
 
+import "code/icons.js" as Icons
+
 KCM.SimpleKCM {
     id: configGeneral
 
@@ -24,6 +26,10 @@ KCM.SimpleKCM {
     property string cfg_customButtonImage: Plasmoid.configuration.customButtonImage
 
     property int cfg_defaultCategory: Plasmoid.configuration.defaultCategory
+    property alias cfg_appNameFormat: appNameFormat.currentIndex
+    property alias cfg_alphaSort: alphaSort.checked
+    property alias cfg_showRecentApps: showRecentApps.checked
+    property alias cfg_showRecentDocs: showRecentDocs.checked
     property bool cfg_showActiveApps: Plasmoid.configuration.showActiveApps
     property bool cfg_showAllAppsInDashboard: Plasmoid.configuration.showAllAppsInDashboard
 
@@ -78,11 +84,26 @@ KCM.SimpleKCM {
 
                 anchors.fill: parent
 
+                function localPathForUrl(url) {
+                    const urlString = url.toString();
+                    if (urlString.indexOf("file:///") !== 0) {
+                        return "";
+                    }
+
+                    try {
+                        return decodeURIComponent(urlString.substring("file://".length));
+                    } catch (error) {
+                        console.warn("Linexin Launcher: Could not decode dropped image URL:", error);
+                        return "";
+                    }
+                }
+
                 onDragEnter: {
-                    var urlString = event.mimeData.url.toString();
-                    var extensions = [".png", ".xpm", ".svg", ".svgz"];
-                    containsAcceptableDrag = urlString.indexOf("file:///") === 0 && extensions.some(function(extension) {
-                        return urlString.indexOf(extension) === urlString.length - extension.length;
+                    const localPath = localPathForUrl(event.mimeData.url);
+                    const lowerPath = localPath.toLowerCase();
+                    const extensions = [".png", ".xpm", ".svg", ".svgz"];
+                    containsAcceptableDrag = localPath.length > 0 && extensions.some(function(extension) {
+                        return lowerPath.indexOf(extension) === lowerPath.length - extension.length;
                     });
                     if (!containsAcceptableDrag) {
                         event.ignore();
@@ -92,7 +113,10 @@ KCM.SimpleKCM {
 
                 onDrop: {
                     if (containsAcceptableDrag) {
-                        iconDialog.setCustomButtonImage(event.mimeData.url.toString().substr("file://".length));
+                        const localPath = localPathForUrl(event.mimeData.url);
+                        if (localPath.length > 0) {
+                            iconDialog.setCustomButtonImage(localPath);
+                        }
                     }
                     containsAcceptableDrag = false;
                 }
@@ -102,7 +126,7 @@ KCM.SimpleKCM {
                 id: iconDialog
 
                 function setCustomButtonImage(image) {
-                    configGeneral.cfg_customButtonImage = image || configGeneral.cfg_icon || "start-here-kde-symbolic";
+                    configGeneral.cfg_customButtonImage = image || configGeneral.cfg_icon || Icons.defaultIconName;
                     configGeneral.cfg_useCustomButtonImage = true;
                 }
 
@@ -121,7 +145,7 @@ KCM.SimpleKCM {
                     anchors.centerIn: parent
                     width: Kirigami.Units.iconSizes.large
                     height: width
-                    source: configGeneral.cfg_useCustomButtonImage ? configGeneral.cfg_customButtonImage : configGeneral.cfg_icon
+                    source: configGeneral.cfg_useCustomButtonImage ? configGeneral.cfg_customButtonImage : Icons.resolve(configGeneral.cfg_icon)
                 }
             }
 
@@ -139,7 +163,7 @@ KCM.SimpleKCM {
                     text: i18nc("@item:inmenu Reset icon to default", "Clear Icon")
                     icon.name: "edit-clear"
                     onClicked: {
-                        configGeneral.cfg_icon = "start-here-kde-symbolic";
+                        configGeneral.cfg_icon = Icons.defaultIconName;
                         configGeneral.cfg_useCustomButtonImage = false;
                     }
                 }
@@ -155,20 +179,55 @@ KCM.SimpleKCM {
         ComboBox {
             id: defaultCategory
             Kirigami.FormData.label: i18n("Starting category:")
-            model: {
-                var items = [i18n("Dashboard"), i18n("All Apps"), i18n("Recent Apps")];
-                return items;
-            }
+            model: [i18n("Dashboard"), i18n("All Apps"), i18n("Recent Apps"), i18n("Recent Files")]
             currentIndex: {
-                if (cfg_defaultCategory === -2) return 0;
-                if (cfg_defaultCategory === -1) return 1;
-                return cfg_defaultCategory + 2;
+                switch (cfg_defaultCategory) {
+                case -2:
+                    return 0;
+                case -1:
+                    return 1;
+                case -4:
+                case 1: // Compatibility with the old root-model-row value.
+                    return 3;
+                case -3:
+                case 0: // Compatibility with the old root-model-row value.
+                    return 2;
+                default:
+                    return 0;
+                }
             }
             onActivated: function(index) {
-                if (index === 0) cfg_defaultCategory = -2;
-                else if (index === 1) cfg_defaultCategory = -1;
-                else cfg_defaultCategory = index - 2;
+                const categoryValues = [-2, -1, -3, -4];
+                cfg_defaultCategory = categoryValues[index];
             }
+        }
+
+        ComboBox {
+            id: appNameFormat
+            Kirigami.FormData.label: i18n("Application names:")
+            model: [
+                i18n("Name"),
+                i18n("Description"),
+                i18n("Name (Description)"),
+                i18n("Description (Name)")
+            ]
+        }
+
+        CheckBox {
+            id: alphaSort
+            Kirigami.FormData.label: i18n("Application sorting:")
+            text: i18n("Sort applications alphabetically")
+        }
+
+        CheckBox {
+            id: showRecentApps
+            Kirigami.FormData.label: i18n("Recent categories:")
+            text: i18n("Show Recent Apps")
+        }
+
+        CheckBox {
+            id: showRecentDocs
+            text: i18n("Show Recent Files")
         }
 
         Item {
@@ -566,10 +625,14 @@ KCM.SimpleKCM {
             icon.name: "edit-undo"
             text: i18n("Restore Defaults")
             onClicked: {
-                cfg_icon = "start-here-kde-symbolic";
+                cfg_icon = Icons.defaultIconName;
                 cfg_useCustomButtonImage = false;
                 cfg_customButtonImage = "";
-                cfg_defaultCategory = 0;
+                cfg_defaultCategory = -3;
+                appNameFormat.currentIndex = 0;
+                alphaSort.checked = false;
+                showRecentApps.checked = true;
+                showRecentDocs.checked = true;
                 cfg_showAllAppsInDashboard = false;
                 showAllAppsInDashboard.checked = false;
                 cfg_showActiveApps = true;

@@ -46,34 +46,55 @@ Item {
         visualParent: root.visualParent
     }
 
-    // Track dynamically-created items so we can clean them up
-    property var __menuItems: []
+    // Track nested menus so refreshes can clear them from the leaves upward.
+    // QMenuProxy.clearMenuItems() owns and deletes its MenuItem wrappers, so
+    // they must not also be destroyed manually from QML.
+    property var __submenus: []
+
+    function clearDynamicItems() {
+        // A model can refresh while a menu is open. Close and clear the nested
+        // menus first so none of their native QActions retain a dead wrapper.
+        for (var menuIndex = __submenus.length - 1; menuIndex >= 0; --menuIndex) {
+            var submenu = __submenus[menuIndex];
+            if (submenu) {
+                submenu.close();
+                submenu.clearMenuItems();
+            }
+        }
+
+        menu.close();
+        menu.clearMenuItems();
+
+        __submenus = [];
+    }
 
     function refreshMenu() {
-        // Remove old dynamic items
-        for (var i = 0; i < __menuItems.length; i++) {
-            __menuItems[i].destroy();
-        }
-        __menuItems = [];
-        menu.clearMenuItems();
+        clearDynamicItems();
 
         if (!actionList) return;
         fillMenu(menu, actionList);
     }
 
-    function fillMenu(menu, items) {
+    function fillMenu(targetMenu, items) {
         items.forEach(function(actionItem) {
             if (actionItem.subActions) {
                 var submenuItem = contextSubmenuItemComponent.createObject(
-                    menu, { "actionItem": actionItem });
-                menu.addMenuItem(submenuItem);
-                __menuItems.push(submenuItem);
+                    targetMenu, { "actionItem": actionItem });
+                if (!submenuItem) {
+                    return;
+                }
+
+                targetMenu.addMenuItem(submenuItem);
+                __submenus.push(submenuItem.submenu);
                 fillMenu(submenuItem.submenu, actionItem.subActions);
             } else {
                 var item = contextMenuItemComponent.createObject(
-                    menu, { "actionItem": actionItem });
-                menu.addMenuItem(item);
-                __menuItems.push(item);
+                    targetMenu, { "actionItem": actionItem });
+                if (!item) {
+                    return;
+                }
+
+                targetMenu.addMenuItem(item);
             }
         });
     }
@@ -86,7 +107,10 @@ Item {
             text: actionItem.text ? actionItem.text : ""
             icon: actionItem.icon ? actionItem.icon : null
             property PlasmaExtras.Menu submenu: PlasmaExtras.Menu {
+                // A QMenuProxy whose visual parent is a MenuItem's QAction is
+                // registered by Plasma as that action's native submenu.
                 visualParent: submenuItem.action
+                placement: PlasmaExtras.Menu.RightPosedTopAlignedPopup
             }
         }
     }

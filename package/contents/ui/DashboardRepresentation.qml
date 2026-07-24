@@ -76,7 +76,9 @@ Kicker.DashboardWindow {
                            + (2 * Math.max(highlightItemSvg.margins.top + highlightItemSvg.margins.bottom,
                                            highlightItemSvg.margins.left + highlightItemSvg.margins.right))
 
-    property int columns: Math.floor(((smallScreen ? 85 : 80) / 100) * Math.ceil(width / cellSize))
+    // Clamped to >= 1: columns feeds `count / columns` and `ip % columns` in the
+    // page/grid math, where a 0 (very narrow window) would yield Infinity/NaN.
+    property int columns: Math.max(1, Math.floor(((smallScreen ? 85 : 80) / 100) * Math.ceil(width / cellSize)))
     property int dashRows: Math.max(1, Math.floor(height * 0.6 / cellSize) + 1)
     property int itemsPerPage: columns * dashRows
     property bool searching: searchField.text !== ""
@@ -269,11 +271,41 @@ Kicker.DashboardWindow {
         }
     }
 
+    // Recent rows move when either recent category is hidden, so persist the
+    // user's intent as sentinels rather than as a brittle RootModel row number.
+    // Returns -1 when neither recent category is available.
+    function defaultRecentRow(defaultCategory) {
+        if (defaultCategory === -3) { // Recent Apps
+            if (rootModel.showRecentApps) return 0;
+            return rootModel.showRecentDocs ? 0 : -1;
+        }
+        if (defaultCategory === -4) { // Recent Files
+            if (rootModel.showRecentDocs) return rootModel.showRecentApps ? 1 : 0;
+            return rootModel.showRecentApps ? 0 : -1;
+        }
+        return -1;
+    }
+
+    // 1.2.0 stored recent views as mutable RootModel row numbers. Keep
+    // interpreting those two legacy values by their original meaning, but do
+    // not let any other obsolete row index keep following a mutable model
+    // position. Unsupported stored values safely fall back to Dashboard.
+    function normalizedDefaultCategory() {
+        var defaultCategory = Plasmoid.configuration.defaultCategory;
+        if (defaultCategory === -4 || defaultCategory === -3
+                || defaultCategory === -2 || defaultCategory === -1) {
+            return defaultCategory;
+        }
+        if (defaultCategory === 0) return -3;
+        if (defaultCategory === 1) return -4;
+        return -2;
+    }
+
     // Where a category pill sends you when it is clicked while already active:
     // back to the configured Starting Category, same target reset() picks on
-    // open. Falls back to row 0 when the configured row no longer exists.
+    // open. Hidden recent views and unsupported legacy values fall back safely.
     function selectDefaultCategory() {
-        var defCat = Plasmoid.configuration.defaultCategory;
+        var defCat = normalizedDefaultCategory();
         if (defCat === -2) {
             rootItem.showingDashboard = true;
             rootItem.showingAllApps = false;
@@ -286,7 +318,96 @@ Kicker.DashboardWindow {
             allAppsView.populate();
             allAppsView.animateEntrance();
         } else {
-            selectCategory(Math.max(0, Math.min(defCat, rootModel.count - 1)));
+            var recentRow = defaultRecentRow(defCat);
+            if (recentRow >= 0) {
+                selectCategory(recentRow);
+            } else {
+                rootItem.showingDashboard = true;
+                rootItem.showingAllApps = false;
+                categoryRow.currentCategory = -1;
+                dashboardGrid.animateEntrance();
+            }
+        }
+    }
+
+    // Give keyboard focus to the control that is actually visible. The
+    // StackView keeps allAppsGrid alive as its base page, so a catch-all route
+    // to that grid can otherwise launch a hidden item from Dashboard or A-Z.
+    function focusVisibleContent() {
+        if (root.searching) {
+            if (mainView.currentItem && mainView.currentItem.tryActivate) {
+                mainView.currentItem.tryActivate(0, 0);
+                mainView.currentItem.forceActiveFocus();
+            }
+        } else if (rootItem.showingDashboard) {
+            dashboardGrid.activateFirstVisible();
+        } else if (rootItem.showingAllApps) {
+            allAppsView.focusSection(0, 0, 0);
+        } else if (root.showingRecent) {
+            recentView.tryActivate();
+        } else {
+            allAppsGrid.tryActivate(0, 0);
+            allAppsGrid.forceActiveFocus();
+        }
+    }
+
+    function focusCurrentCategory() {
+        if (rootItem.showingDashboard) {
+            dashboardCatBtn.forceActiveFocus();
+        } else if (rootItem.showingAllApps) {
+            allAppsCatBtn.forceActiveFocus();
+        } else if (categoryRow.currentCategory >= 0) {
+            var categoryButton = categoryRepeater.itemAt(categoryRow.currentCategory);
+            if (categoryButton && categoryButton.visible) {
+                categoryButton.forceActiveFocus();
+                return;
+            }
+            dashboardCatBtn.forceActiveFocus();
+        }
+    }
+
+    function categoryFocusItems() {
+        var items = [dashboardCatBtn, allAppsCatBtn];
+        for (var i = 0; i < categoryRepeater.count; ++i) {
+            var item = categoryRepeater.itemAt(i);
+            if (item && item.visible && item.enabled) {
+                items.push(item);
+            }
+        }
+        return items;
+    }
+
+    function navigateCategoryFocus(currentItem, direction, wrap) {
+        var items = categoryFocusItems();
+        var currentIndex = items.indexOf(currentItem);
+        if (items.length === 0 || currentIndex < 0) {
+            searchField.forceActiveFocus();
+            return;
+        }
+
+        var nextIndex = currentIndex + direction;
+        if (nextIndex >= 0 && nextIndex < items.length) {
+            items[nextIndex].forceActiveFocus();
+        } else if (wrap) {
+            items[(nextIndex + items.length) % items.length].forceActiveFocus();
+        } else if (direction > 0) {
+            focusVisibleContent();
+        } else {
+            searchField.forceActiveFocus();
+        }
+    }
+
+    function focusSystemActionsOrFallback() {
+        if (systemFavoritesGrid.count > 0) {
+            systemFavoritesGrid.tryActivate(0, 0);
+            systemFavoritesGrid.forceActiveFocus();
+        } else if (runningDockContainer.visible && runningRepeater.count > 0) {
+            var firstTask = runningRepeater.itemAt(0);
+            if (firstTask) {
+                firstTask.forceActiveFocus();
+            }
+        } else {
+            searchField.forceActiveFocus();
         }
     }
 
@@ -361,7 +482,7 @@ Kicker.DashboardWindow {
         rootItem.openFolderIndex = -1;
         allAppsGrid.parentModel = null;
 
-        var defCat = Plasmoid.configuration.defaultCategory;
+        var defCat = normalizedDefaultCategory();
         if (defCat === -2) {
             rootItem.showingDashboard = true;
             categoryRow.currentCategory = -1;
@@ -370,10 +491,12 @@ Kicker.DashboardWindow {
             categoryRow.currentCategory = -1;
             allAppsView.populate();
         } else {
-            var row = Math.min(defCat, rootModel.count - 1);
-            categoryRow.currentCategory = row;
-            if (row >= recentRowCount) {
-                allAppsGrid.model = rootModel.modelForRow(row);
+            var recentRow = defaultRecentRow(defCat);
+            if (recentRow >= 0) {
+                categoryRow.currentCategory = recentRow;
+            } else {
+                rootItem.showingDashboard = true;
+                categoryRow.currentCategory = -1;
             }
         }
 
@@ -737,17 +860,30 @@ Kicker.DashboardWindow {
         PlasmaExtras.Menu {
             id: appContextMenu
             property string appUrl: ""
+            property bool appIsApplication: false
             property bool appCanEdit: false
             property string appName: ""
             property string appIcon: ""
             property var appModel: null
             property int appIndex: -1
 
+            onStatusChanged: {
+                // Start the asynchronous check only after the native popup is
+                // open. Starting it before menuOpenTimer's deferred open meant
+                // a fast reply was discarded as stale, leaving Pin disabled
+                // for the lifetime of that menu.
+                if (status === PlasmaExtras.Menu.Open && appIsApplication) {
+                    pinMenuItem.isPinned = false;
+                    pinMenuItem.taskManagerFound = false;
+                    rootItem.queryPinState(pinChecker, appUrl);
+                }
+            }
+
             PlasmaExtras.MenuItem {
                 id: dashboardMenuItem
                 text: rootItem.isDashboardApp(appContextMenu.appUrl) ? i18n("Remove from Dashboard") : i18n("Add to Dashboard")
                 icon: rootItem.isDashboardApp(appContextMenu.appUrl) ? "edit-delete-remove" : "list-add"
-                visible: appContextMenu.appUrl !== ""
+                visible: appContextMenu.appIsApplication
                 onClicked: {
                     var url = appContextMenu.appUrl;
                     var name = appContextMenu.appName;
@@ -762,35 +898,22 @@ Kicker.DashboardWindow {
                 }
             }
 
-            PlasmaExtras.MenuItem { separator: true; visible: appContextMenu.appUrl !== "" }
+            PlasmaExtras.MenuItem { separator: true; visible: appContextMenu.appIsApplication }
 
             PlasmaExtras.MenuItem {
                 id: pinMenuItem
                 property bool isPinned: false
                 text: isPinned ? i18n("Unpin from Task Manager") : i18n("Pin to Task Manager")
                 icon: isPinned ? "window-unpin" : "window-pin"
-                visible: appContextMenu.appUrl !== ""
+                visible: appContextMenu.appIsApplication
+                enabled: taskManagerFound
+                property bool taskManagerFound: false
                 onClicked: {
-                    // Read current launchers, toggle this app, write back — all via evaluateScript
-                    var url = appContextMenu.appUrl;
-                    var cmd = "qdbus6 org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript \""
-                        + "var ps=panels();"
-                        + "for(var i=0;i<ps.length;i++){"
-                        + "var ws=ps[i].widgets();"
-                        + "for(var j=0;j<ws.length;j++){"
-                        + "if(ws[j].type==='org.kde.plasma.icontasks'){"
-                        + "ws[j].currentConfigGroup=['General'];"
-                        + "var cur=ws[j].readConfig('launchers').split(',');"
-                        + "var idx=cur.indexOf('" + url + "');"
-                        + "if(idx!==-1){cur.splice(idx,1);}else{cur.push('" + url + "');}"
-                        + "ws[j].writeConfig('launchers',cur);"
-                        + "}}}"
-                        + "\"";
-                    pinHelper.connectSource(cmd);
+                    rootItem.toggleTaskManagerLauncher(appContextMenu.appUrl);
                 }
             }
 
-            PlasmaExtras.MenuItem { separator: true; visible: appContextMenu.appUrl !== "" }
+            PlasmaExtras.MenuItem { separator: true; visible: appContextMenu.appIsApplication }
 
             PlasmaExtras.MenuItem {
                 text: i18n("Edit Application…")
@@ -814,18 +937,30 @@ Kicker.DashboardWindow {
             PlasmaExtras.MenuItem {
                 text: i18n("Uninstall or Manage Add-Ons…")
                 icon: "plasmadiscover"
-                visible: appContextMenu.appUrl !== ""
+                visible: appContextMenu.appIsApplication
                 onClicked: {
-                    var desktopFile = appContextMenu.appUrl.replace("applications:", "");
-                    var stem = desktopFile.replace(/\.desktop$/, "");
+                    var appUrl = appContextMenu.appUrl;
                     appContextMenu.close();
                     closeWithAnimation();
-                    // Use appstreamcli to resolve the correct component ID, then open Discover
-                    var cmd = "ID=$(appstreamcli get '" + stem + "' 2>/dev/null | head -1 | awk '{print $2}');"
-                            + "[ -z \"$ID\" ] && ID=$(appstreamcli get '" + desktopFile + "' 2>/dev/null | head -1 | awk '{print $2}');"
-                            + "[ -z \"$ID\" ] && ID=$(appstreamcli search '" + stem + "' 2>/dev/null | grep 'Identifier:.*\\[desktop-application\\]' | head -1 | awk '{print $2}');"
-                            + "[ -n \"$ID\" ] && xdg-open appstream://$ID";
-                    discoverHelper.connectSource(cmd);
+                    rootItem.openApplicationInDiscover(appUrl);
+                }
+            }
+        }
+
+        // Files, settings and other runner results keep their model-provided
+        // actions. They must never inherit Dashboard/Task Manager/Discover
+        // actions merely because the runner supplied a URL.
+        ActionMenu {
+            id: resultActionMenu
+            property var sourceModel: null
+            property int sourceIndex: -1
+
+            onActionClicked: (actionId, actionArgument) => {
+                if (sourceModel && "trigger" in sourceModel) {
+                    var closeRequested = sourceModel.trigger(sourceIndex, actionId, actionArgument);
+                    if (closeRequested === true) {
+                        closeWithAnimation();
+                    }
                 }
             }
         }
@@ -851,9 +986,28 @@ Kicker.DashboardWindow {
             engine: "executable"
             onNewData: function(source, data) {
                 var stdout = (data["stdout"] || "").trim();
-                var launchers = stdout.length > 0 ? stdout.split(",") : [];
-                pinMenuItem.isPinned = launchers.indexOf(appContextMenu.appUrl) !== -1;
                 disconnectSource(source);
+                // This reply is a qdbus round-trip and can land after the menu
+                // has already closed. Flipping isPinned then rewrites the item's
+                // text and icon, reflowing the popup — and if the menu is mid
+                // teardown that pushes a blur region to a surface being
+                // destroyed, the fatal Wayland error that crashes plasmashell.
+                // Only apply while the menu is actually open; a stale result is
+                // re-queried on the next open anyway.
+                if (appContextMenu.status !== PlasmaExtras.Menu.Open) {
+                    return;
+                }
+                var result;
+                try {
+                    result = JSON.parse(stdout);
+                } catch (error) {
+                    return;
+                }
+                if (!result || result.url !== appContextMenu.appUrl) {
+                    return;
+                }
+                pinMenuItem.taskManagerFound = result.found === true;
+                pinMenuItem.isPinned = result.pinned === true;
             }
         }
 
@@ -865,7 +1019,25 @@ Kicker.DashboardWindow {
             property real mx: 0
             property real my: 0
             onTriggered: {
-                if (menu && !dragHelper.dragging) menu.open(mx, my);
+                if (!menu || dragHelper.dragging) {
+                    return;
+                }
+                // The visualParent is the delegate the menu anchors to. It can
+                // be destroyed within this 16ms window while the app model is
+                // relaying out — e.g. right after a .desktop file is edited or
+                // removed and the sycoca DB reloads, tearing down and rebuilding
+                // every delegate. An Item-typed property reads back null once its
+                // object is gone, so a null here means the anchor died under us.
+                // Opening a blurred PlasmaExtras.Menu popup against a destroyed
+                // surface makes plasmashell push a blur region to a dead
+                // wl_surface — a fatal Wayland protocol error
+                // (ext_background_effect_surface_v1: "tried to set blur region on
+                // destroyed surface") that takes the whole shell down. Skip the
+                // open rather than anchor to a corpse.
+                if (!menu.visualParent || !root.visible) {
+                    return;
+                }
+                menu.open(mx, my);
             }
             function openMenu(m, x, y) {
                 menu = m;
@@ -887,6 +1059,134 @@ Kicker.DashboardWindow {
             }
         }
 
+        // Quote one complete shell argument. Desktop-entry storage IDs are file
+        // names, not identifiers restricted to ASCII: spaces, apostrophes and
+        // non-Latin text are all legal. Keep those names intact while making the
+        // shell treat every byte as data rather than syntax.
+        function shellQuote(value) {
+            return "'" + String(value).replace(/'/g, "'\\''") + "'";
+        }
+
+        function jsStringLiteral(value) {
+            // U+2028/U+2029 were line terminators rather than string contents in
+            // older ECMAScript parsers still used by some Plasma releases.
+            return JSON.stringify(String(value))
+                .replace(/\u2028/g, "\\u2028")
+                .replace(/\u2029/g, "\\u2029");
+        }
+
+        // Reduce an applications:/file: URL, an encoded QUrl string, or a bare
+        // KService storage ID to the desktop file name KService understands.
+        // A bare storage ID is already decoded data, so preserve literal '%',
+        // '?' and '#'. They acquire URL syntax only when a scheme/path is present.
+        function desktopFileFromApplication(value) {
+            var desktopFile = String(value || "");
+            if (desktopFile === "") {
+                return "";
+            }
+
+            var isUrl = /^applications:/i.test(desktopFile)
+                     || /^file:/i.test(desktopFile)
+                     || desktopFile.indexOf("/") !== -1;
+            if (isUrl) {
+                desktopFile = desktopFile.replace(/^applications:\/*/i, "");
+                desktopFile = desktopFile.replace(/^file:\/\/*/i, "/");
+                // Query and fragment parts describe a runner action, not its app.
+                desktopFile = desktopFile.replace(/[?#].*$/, "");
+                desktopFile = desktopFile.replace(/^.*\//, "");
+                try {
+                    desktopFile = decodeURIComponent(desktopFile);
+                } catch (error) {
+                    // Keep malformed URL text inert. Structural validation below
+                    // still prevents it from becoming a path.
+                }
+            }
+
+            // A slash/NUL cannot be part of a KService storage ID. This
+            // is structural validation only; punctuation and Unicode stay valid.
+            if (desktopFile.indexOf("/") !== -1 || desktopFile.indexOf("\0") !== -1
+                    || !/\.desktop$/i.test(desktopFile)) {
+                return "";
+            }
+            return desktopFile;
+        }
+
+        function canonicalApplicationUrl(value) {
+            var desktopFile = desktopFileFromApplication(value);
+            // Keep the persisted/inter-component form unambiguous: a literal '%'
+            // in a storage ID becomes %25, while spaces and Unicode follow normal
+            // QUrl serialization. Process/API boundaries decode through the
+            // helper above when they need the storage ID itself.
+            return desktopFile === ""
+                ? "" : "applications:" + encodeURIComponent(desktopFile);
+        }
+
+        function sameApplication(first, second) {
+            var firstUrl = canonicalApplicationUrl(first);
+            var secondUrl = canonicalApplicationUrl(second);
+            return firstUrl !== "" && firstUrl === secondUrl;
+        }
+
+        // Resolve an AppStream component without ever interpolating the desktop
+        // file into shell syntax. appstreamcli's output remains inside a quoted
+        // URL argument as well.
+        function openApplicationInDiscover(applicationUrl) {
+            var desktopFile = desktopFileFromApplication(applicationUrl);
+            if (desktopFile === "") {
+                return;
+            }
+            var stem = desktopFile.replace(/\.desktop$/i, "");
+            var quotedStem = shellQuote(stem);
+            var quotedDesktopFile = shellQuote(desktopFile);
+            var cmd = "ID=$(appstreamcli get -- " + quotedStem + " 2>/dev/null | head -1 | awk '{print $2}');"
+                    + "[ -z \"$ID\" ] && ID=$(appstreamcli get -- " + quotedDesktopFile + " 2>/dev/null | head -1 | awk '{print $2}');"
+                    + "[ -z \"$ID\" ] && ID=$(appstreamcli search -- " + quotedStem + " 2>/dev/null | grep 'Identifier:.*\\[desktop-application\\]' | head -1 | awk '{print $2}');"
+                    + "[ -n \"$ID\" ] && xdg-open \"appstream://$ID\""
+                    + " #" + Date.now();
+            discoverHelper.connectSource(cmd);
+        }
+
+        // Select one Task Manager deterministically. Prefer the one in the panel
+        // containing this launcher; otherwise use the first Task Manager found.
+        // Supporting both task-manager applet types avoids showing an action that
+        // silently does nothing for users of the non-icons-only variant.
+        function taskManagerScriptPrefix() {
+            var ownId = Number(Plasmoid.id);
+            return "var ps=panels();var target=null;var fallback=null;"
+                + "for(var i=0;i<ps.length;i++){var ws=ps[i].widgets();var own=false;"
+                + "for(var j=0;j<ws.length;j++){if(Number(ws[j].id)===" + ownId + "){own=true;break;}}"
+                + "for(var k=0;k<ws.length;k++){var t=ws[k].type;"
+                + "if(t==='org.kde.plasma.icontasks'||t==='org.kde.plasma.taskmanager'"
+                + "||t==='org.kde.plasma.expandingiconstaskmanager'){"
+                + "if(!fallback){fallback=ws[k];}if(own&&!target){target=ws[k];}}}}"
+                + "if(!target){target=fallback;}";
+        }
+
+        function toggleTaskManagerLauncher(desktopFile) {
+            var url = canonicalApplicationUrl(desktopFile);
+            if (url === "") {
+                return;
+            }
+            var urlLiteral = jsStringLiteral(url);
+            var script = taskManagerScriptPrefix()
+                + "if(target){target.currentConfigGroup=['General'];"
+                + "var raw=target.readConfig('launchers')||'';"
+                + "var cur=raw===''?[]:raw.split(',');"
+                + "var wanted=" + urlLiteral + ";"
+                + "function launcherKey(v){v=String(v||'');"
+                + "if(v.indexOf('applications:')!==0){return v;}"
+                + "var p=v.substring(13).replace(/[?#].*$/,'');"
+                + "try{p=decodeURIComponent(p);}catch(e){}"
+                + "return 'applications:'+encodeURIComponent(p);}"
+                + "var idx=-1;for(var n=0;n<cur.length;n++){"
+                + "if(launcherKey(cur[n])===wanted){idx=n;break;}}"
+                + "if(idx!==-1){cur.splice(idx,1);}else{cur.push(wanted);}"
+                + "target.writeConfig('launchers',cur);}";
+            var cmd = "qdbus6 org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript "
+                + shellQuote(script) + " #" + Date.now();
+            pinHelper.connectSource(cmd);
+        }
+
         // Whether the Kicker model offers a given action for this row. Used to
         // gate menu entries on the same rules Plasma itself applies — e.g. the
         // editApplication action only exists for real .desktop services, and
@@ -905,46 +1205,95 @@ Kicker.DashboardWindow {
             return false;
         }
 
-        // Ask the panel's icontasks widget which apps it currently has pinned.
+        // Kicker only assigns favoriteId to real application matches from the
+        // services runner; file/recent-document rows expose their file URL
+        // instead. Use that semantic role as the gate, then normalize the
+        // application URL used by our Dashboard and Task Manager actions.
+        function applicationUrlForModel(model, url) {
+            var favoriteId = ("favoriteId" in model) ? String(model.favoriteId || "") : "";
+            if (favoriteId === "" || /^file:/i.test(favoriteId)) {
+                return "";
+            }
+            var isApplicationId = /^applications:/i.test(favoriteId)
+                                  || /^preferred:/i.test(favoriteId)
+                                  || /\.desktop$/i.test(favoriteId);
+            if (!isApplicationId) {
+                return "";
+            }
+
+            // A plain storage ID is more authoritative than model.url: converting
+            // the latter QUrl to a string percent-encodes spaces and Unicode.
+            if (/\.desktop$/i.test(favoriteId) && !/^applications:/i.test(favoriteId)) {
+                return canonicalApplicationUrl(favoriteId);
+            }
+
+            if (/^applications:/i.test(favoriteId)) {
+                return canonicalApplicationUrl(favoriteId);
+            }
+
+            // A preferred:// AppEntry exposes its resolved KService through url.
+            // Do not persist the preference alias: Dashboard and Discover need
+            // the concrete desktop file that is current at menu-open time.
+            return canonicalApplicationUrl(url);
+        }
+
+        // Ask the selected Task Manager which apps it currently has pinned.
         // The reply arrives asynchronously on the given checker, which flips the
         // Pin/Unpin label on the menu it belongs to.
         function queryPinState(checker, desktopFile) {
-            if (!desktopFile) {
+            var url = canonicalApplicationUrl(desktopFile);
+            if (url === "") {
                 return;
             }
-            var script = "var ps=panels();for(var i=0;i<ps.length;i++){"
-                + "var ws=ps[i].widgets();"
-                + "for(var j=0;j<ws.length;j++){"
-                + "if(ws[j].type==='org.kde.plasma.icontasks'){"
-                + "ws[j].currentConfigGroup=['General'];"
-                + "print(ws[j].readConfig('launchers'));break;}}}";
-            var cmd = "qdbus6 org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript \""
-                + script + "\" #" + Date.now();
+            var urlLiteral = jsStringLiteral(url);
+            var script = taskManagerScriptPrefix()
+                + "if(target){target.currentConfigGroup=['General'];"
+                + "var raw=target.readConfig('launchers')||'';"
+                + "var cur=raw===''?[]:raw.split(',');"
+                + "var wanted=" + urlLiteral + ";"
+                + "function launcherKey(v){v=String(v||'');"
+                + "if(v.indexOf('applications:')!==0){return v;}"
+                + "var p=v.substring(13).replace(/[?#].*$/,'');"
+                + "try{p=decodeURIComponent(p);}catch(e){}"
+                + "return 'applications:'+encodeURIComponent(p);}"
+                + "var pinned=false;for(var n=0;n<cur.length;n++){"
+                + "if(launcherKey(cur[n])===wanted){pinned=true;break;}}"
+                + "print(JSON.stringify({found:true,pinned:pinned,url:wanted}));"
+                + "}else{print(JSON.stringify({found:false,pinned:false,url:"
+                + urlLiteral + "}));}";
+            var cmd = "qdbus6 org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript "
+                + shellQuote(script) + " #" + Date.now();
             checker.connectSource(cmd);
         }
 
         function openAppContextMenu(delegateItem, model, mx, my) {
             var url = model.url ? model.url.toString() : "";
-            // Normalize URL to applications:filename.desktop format
-            var appUrl = "";
-            if (url !== "") {
-                var desktopFile = url.replace(/^.*\//, "");  // get filename
-                if (desktopFile.endsWith(".desktop")) {
-                    appUrl = "applications:" + desktopFile;
-                } else {
-                    appUrl = url;
+            var appUrl = applicationUrlForModel(model, url);
+            var sourceModel = delegateItem.GridView ? delegateItem.GridView.view.model : null;
+
+            if (appUrl === "") {
+                var actionList = ("actionList" in model) ? model.actionList : null;
+                if (actionList && actionList.length > 0 && sourceModel) {
+                    resultActionMenu.visualParent = delegateItem;
+                    resultActionMenu.sourceModel = sourceModel;
+                    resultActionMenu.sourceIndex = model.index;
+                    resultActionMenu.actionList = actionList;
+                    resultActionMenu.open(mx, my);
                 }
+                return;
             }
+
             appContextMenu.appUrl = appUrl;
+            appContextMenu.appIsApplication = true;
             appContextMenu.appName = model.display || "";
             appContextMenu.appIcon = model.decoration || "";
-            appContextMenu.appModel = delegateItem.GridView ? delegateItem.GridView.view.model : null;
+            appContextMenu.appModel = sourceModel;
             appContextMenu.appIndex = model.index;
             appContextMenu.appCanEdit = hasAction(model, "editApplication");
             appContextMenu.visualParent = delegateItem;
             // Check if this app is currently pinned in icontasks
             pinMenuItem.isPinned = false;
-            queryPinState(pinChecker, appUrl);
+            pinMenuItem.taskManagerFound = false;
             appContextMenu.visualParent = delegateItem;
             menuOpenTimer.openMenu(appContextMenu, mx, my);
         }
@@ -1091,36 +1440,73 @@ Kicker.DashboardWindow {
             catch(e) { return []; }
         }
 
+        function normalizedDashboardItem(item) {
+            if (!item) {
+                return item;
+            }
+            if (item.type === "folder") {
+                var folderApps = [];
+                var sourceApps = item.apps || [];
+                for (var i = 0; i < sourceApps.length; ++i) {
+                    var sourceApp = sourceApps[i];
+                    var sourceUrl = canonicalApplicationUrl(sourceApp.desktopFile);
+                    folderApps.push({
+                        desktopFile: sourceUrl || sourceApp.desktopFile,
+                        name: sourceApp.name,
+                        icon: sourceApp.icon
+                    });
+                }
+                return {type: "folder", name: item.name, apps: folderApps};
+            }
+
+            var appUrl = canonicalApplicationUrl(item.desktopFile);
+            if (item.type === "auto") {
+                return {type: "auto", desktopFile: appUrl || item.desktopFile};
+            }
+            return {
+                desktopFile: appUrl || item.desktopFile,
+                name: item.name,
+                icon: item.icon
+            };
+        }
+
         function saveDashboard() {
-            Plasmoid.configuration.dashboardApps = JSON.stringify(rootItem.dashboardApps);
+            // Saving is also the migration point for IDs written by older code
+            // from QUrl.toString(), such as applications:Desktop%20Explorer.
+            var normalized = [];
+            for (var i = 0; i < rootItem.dashboardApps.length; ++i) {
+                normalized.push(normalizedDashboardItem(rootItem.dashboardApps[i]));
+            }
+            rootItem.dashboardApps = normalized;
+            Plasmoid.configuration.dashboardApps = JSON.stringify(normalized);
         }
 
         function launchDesktopFile(desktopFile) {
-            if (!desktopFile) return;
-            var df = String(desktopFile);
-            df = df.replace(/^applications:\/*/i, "");
-            df = df.replace(/^file:\/\//i, "");
-            df = df.replace(/^.*\//, "");
+            var df = desktopFileFromApplication(desktopFile);
+            if (df === "") return;
             var stem = df.replace(/\.desktop$/i, "");
-            if (!stem) return;
-            var quoted = "'" + stem.replace(/'/g, "'\\''") + "'";
             // Launch through KDE's ApplicationLauncherJob (via kstart) rather than
             // gtk-launch. This is the same code path the Recent Apps view uses via
             // the Kicker model's trigger(), so the .desktop Exec line — including
             // fixed arguments like --no-sandbox — is honoured identically, and the
             // app's StartupWMClass / single-instance handling is respected.
-            dashLauncher.connectSource("kstart --application " + quoted + " #" + Date.now());
+            dashLauncher.connectSource("kstart --application " + shellQuote(stem)
+                                       + " #" + Date.now());
         }
 
         function addToDashboard(desktopFile, name, icon) {
+            desktopFile = canonicalApplicationUrl(desktopFile);
+            if (desktopFile === "") {
+                return;
+            }
             // Check if already in dashboard (pinned or in folders)
             for (var i = 0; i < dashboardApps.length; i++) {
                 var item = dashboardApps[i];
                 if (item.type === "auto") continue;  // a slot, not a pin
-                if (item.desktopFile === desktopFile) return;
+                if (sameApplication(item.desktopFile, desktopFile)) return;
                 if (item.type === "folder" && item.apps) {
                     for (var j = 0; j < item.apps.length; j++) {
-                        if (item.apps[j].desktopFile === desktopFile) return;
+                        if (sameApplication(item.apps[j].desktopFile, desktopFile)) return;
                     }
                 }
             }
@@ -1128,7 +1514,9 @@ Kicker.DashboardWindow {
             if (Plasmoid.configuration.showAllAppsInDashboard) {
                 for (var i = 0; i < dashboardModel.count; i++) {
                     var mItem = dashboardModel.get(i);
-                    if (mItem.desktopFile === desktopFile && mItem.type === "auto") {
+                    if (sameApplication(mItem.desktopFile, desktopFile)
+                            && mItem.type === "auto") {
+                        dashboardModel.setProperty(i, "desktopFile", desktopFile);
                         dashboardModel.setProperty(i, "type", "app");
                         syncModelToConfig();
                         return;
@@ -1143,24 +1531,57 @@ Kicker.DashboardWindow {
         }
 
         function removeFromDashboard(desktopFile) {
+            desktopFile = canonicalApplicationUrl(desktopFile);
+            if (desktopFile === "") {
+                return;
+            }
             // Unpinning does not have to mean leaving. With all apps shown the
             // tile stays put as an auto one, so the grid keeps its shape and only
             // the pin goes away.
             var keepSlot = Plasmoid.configuration.showAllAppsInDashboard;
             var apps = [];
+            var removedFromFolder = false;
             for (var i = 0; i < dashboardApps.length; i++) {
                 var item = dashboardApps[i];
-                if (item.type !== "folder" && item.desktopFile === desktopFile) {
+                if (item.type !== "folder"
+                        && sameApplication(item.desktopFile, desktopFile)) {
                     if (keepSlot && item.type !== "auto") {
                         apps.push({type: "auto", desktopFile: desktopFile});
                     }
                     continue;
+                }
+
+                if (item.type === "folder" && item.apps) {
+                    var folderApps = item.apps.filter(function(app) {
+                        return !rootItem.sameApplication(app.desktopFile, desktopFile);
+                    });
+                    if (folderApps.length !== item.apps.length) {
+                        removedFromFolder = true;
+                        if (folderApps.length > 1) {
+                            apps.push({type: "folder", name: item.name, apps: folderApps});
+                        } else if (folderApps.length === 1) {
+                            apps.push({
+                                type: "app",
+                                desktopFile: folderApps[0].desktopFile,
+                                name: folderApps[0].name,
+                                icon: folderApps[0].icon
+                            });
+                        }
+                        if (keepSlot) {
+                            apps.push({type: "auto", desktopFile: desktopFile});
+                        }
+                        continue;
+                    }
                 }
                 apps.push(item);
             }
             dashboardApps = apps;
             saveDashboard();
             dashboardModel.reload();
+            folderRevision++;
+            if (removedFromFolder) {
+                openFolderIndex = -1;
+            }
         }
 
         // A working-array index survives the rebuild unchanged: saveFromArray()
@@ -1182,7 +1603,9 @@ Kicker.DashboardWindow {
             var folder = apps[folderIndex];
             if (!folder || folder.type !== "folder") return null;
 
-            folder.apps = folder.apps.filter(function(a) { return a.desktopFile !== appDesktopFile; });
+            folder.apps = folder.apps.filter(function(a) {
+                return !rootItem.sameApplication(a.desktopFile, appDesktopFile);
+            });
 
             // If folder has 1 or 0 apps left, dissolve it
             if (folder.apps.length === 1) {
@@ -1410,13 +1833,17 @@ Kicker.DashboardWindow {
         }
 
         function isDashboardApp(desktopFile) {
+            desktopFile = canonicalApplicationUrl(desktopFile);
+            if (desktopFile === "") {
+                return false;
+            }
             for (var i = 0; i < dashboardApps.length; i++) {
                 var item = dashboardApps[i];
                 if (item.type === "auto") continue;  // a slot, not a pin
-                if (item.desktopFile === desktopFile) return true;
+                if (sameApplication(item.desktopFile, desktopFile)) return true;
                 if (item.type === "folder" && item.apps) {
                     for (var j = 0; j < item.apps.length; j++) {
-                        if (item.apps[j].desktopFile === desktopFile) return true;
+                        if (sameApplication(item.apps[j].desktopFile, desktopFile)) return true;
                     }
                 }
             }
@@ -1525,23 +1952,28 @@ Kicker.DashboardWindow {
                         // Add sub-apps into the nested ListModel
                         var folderApps = item.apps || [];
                         for (var j = 0; j < folderApps.length; j++) {
-                            get(count - 1).apps.append(folderApps[j]);
-                            existing[folderApps[j].desktopFile] = true;
+                            var folderApp = rootItem.normalizedDashboardItem(folderApps[j]);
+                            get(count - 1).apps.append(folderApp);
+                            existing[folderApp.desktopFile] = true;
                         }
                     } else if (item.type === "auto") {
                         // A placeholder: the app is not pinned, it just holds the
                         // slot the user put it in. It only reappears while the
                         // all-apps model still lists it, so uninstalled apps fall
                         // out instead of lingering as dead tiles.
-                        var src = available[item.desktopFile];
+                        var autoUrl = rootItem.canonicalApplicationUrl(item.desktopFile)
+                                      || item.desktopFile;
+                        var src = available[autoUrl];
                         if (!src) continue;
                         append({type: "auto", desktopFile: src.appUrl, name: src.appName,
                                 icon: src.appIcon, apps: []});
-                        existing[item.desktopFile] = true;
+                        existing[src.appUrl] = true;
                     } else {
-                        append({type: "app", desktopFile: item.desktopFile,
+                        var pinnedUrl = rootItem.canonicalApplicationUrl(item.desktopFile)
+                                        || item.desktopFile;
+                        append({type: "app", desktopFile: pinnedUrl,
                                 name: item.name, icon: item.icon, apps: []});
-                        existing[item.desktopFile] = true;
+                        existing[pinnedUrl] = true;
                     }
                 }
 
@@ -1578,9 +2010,25 @@ Kicker.DashboardWindow {
             engine: "executable"
             onNewData: function(source, data) {
                 var stdout = (data["stdout"] || "").trim();
-                var launchers = stdout.length > 0 ? stdout.split(",") : [];
-                dashPinMenuItem.isPinned = launchers.indexOf(dashContextMenu.desktopFile) !== -1;
                 disconnectSource(source);
+                // See pinChecker: only reflow the menu while it is open, so a
+                // late qdbus reply can't push a blur region to a torn-down popup
+                // surface and take plasmashell down with it.
+                if (dashContextMenu.status !== PlasmaExtras.Menu.Open) {
+                    return;
+                }
+                var result;
+                try {
+                    result = JSON.parse(stdout);
+                } catch (error) {
+                    return;
+                }
+                if (!result || result.url
+                        !== rootItem.canonicalApplicationUrl(dashContextMenu.desktopFile)) {
+                    return;
+                }
+                dashPinMenuItem.taskManagerFound = result.found === true;
+                dashPinMenuItem.isPinned = result.pinned === true;
             }
         }
 
@@ -1623,10 +2071,7 @@ Kicker.DashboardWindow {
             delegate: QtObject {
                 property string appUrl: {
                     var url = model.url ? model.url.toString() : "";
-                    if (url === "") return "";
-                    var desktopFile = url.replace(/^.*\//, "");
-                    if (desktopFile.endsWith(".desktop")) return "applications:" + desktopFile;
-                    return url;
+                    return rootItem.applicationUrlForModel(model, url);
                 }
                 property string appName: model.display || ""
                 property string appIcon: model.decoration || ""
@@ -1652,6 +2097,15 @@ Kicker.DashboardWindow {
             property int appIndex: -1
             property string appName: ""
             property string appIcon: ""
+
+            onStatusChanged: {
+                if (status === PlasmaExtras.Menu.Open && !isFolder
+                        && desktopFile !== "") {
+                    dashPinMenuItem.isPinned = false;
+                    dashPinMenuItem.taskManagerFound = false;
+                    rootItem.queryPinState(dashPinChecker, desktopFile);
+                }
+            }
 
             // Puts the app back on the dashboard alongside the folder it was in.
             PlasmaExtras.MenuItem {
@@ -1729,25 +2183,13 @@ Kicker.DashboardWindow {
             PlasmaExtras.MenuItem {
                 id: dashPinMenuItem
                 property bool isPinned: false
+                property bool taskManagerFound: false
                 text: isPinned ? i18n("Unpin from Task Manager") : i18n("Pin to Task Manager")
                 icon: isPinned ? "window-unpin" : "window-pin"
                 visible: !dashContextMenu.isFolder && dashContextMenu.desktopFile !== ""
+                enabled: taskManagerFound
                 onClicked: {
-                    var url = dashContextMenu.desktopFile;
-                    var cmd = "qdbus6 org.kde.plasmashell /PlasmaShell org.kde.PlasmaShell.evaluateScript \""
-                        + "var ps=panels();"
-                        + "for(var i=0;i<ps.length;i++){"
-                        + "var ws=ps[i].widgets();"
-                        + "for(var j=0;j<ws.length;j++){"
-                        + "if(ws[j].type==='org.kde.plasma.icontasks'){"
-                        + "ws[j].currentConfigGroup=['General'];"
-                        + "var cur=ws[j].readConfig('launchers').split(',');"
-                        + "var idx=cur.indexOf('" + url + "');"
-                        + "if(idx!==-1){cur.splice(idx,1);}else{cur.push('" + url + "');}"
-                        + "ws[j].writeConfig('launchers',cur);"
-                        + "}}}"
-                        + "\"";
-                    pinHelper.connectSource(cmd);
+                    rootItem.toggleTaskManagerLauncher(dashContextMenu.desktopFile);
                 }
             }
 
@@ -1763,10 +2205,13 @@ Kicker.DashboardWindow {
                     // Kicker model row, so there is no editApplication action to
                     // trigger — go through the same ProcessRunner the plasmoid's
                     // own "Edit Applications…" action uses.
-                    var menuId = dashContextMenu.desktopFile.replace("applications:", "");
+                    var menuId = rootItem.desktopFileFromApplication(
+                        dashContextMenu.desktopFile);
                     dashContextMenu.close();
                     closeWithAnimation();
-                    processRunner.runMenuEditor(menuId);
+                    if (menuId !== "") {
+                        processRunner.runMenuEditor(menuId);
+                    }
                 }
             }
 
@@ -1775,15 +2220,10 @@ Kicker.DashboardWindow {
                 icon: "plasmadiscover"
                 visible: !dashContextMenu.isFolder && dashContextMenu.desktopFile !== ""
                 onClicked: {
-                    var desktopFile = dashContextMenu.desktopFile.replace("applications:", "");
-                    var stem = desktopFile.replace(/\.desktop$/, "");
+                    var appUrl = dashContextMenu.desktopFile;
                     dashContextMenu.close();
                     closeWithAnimation();
-                    var cmd = "ID=$(appstreamcli get '" + stem + "' 2>/dev/null | head -1 | awk '{print $2}');"
-                            + "[ -z \"$ID\" ] && ID=$(appstreamcli get '" + desktopFile + "' 2>/dev/null | head -1 | awk '{print $2}');"
-                            + "[ -z \"$ID\" ] && ID=$(appstreamcli search '" + stem + "' 2>/dev/null | grep 'Identifier:.*\\[desktop-application\\]' | head -1 | awk '{print $2}');"
-                            + "[ -n \"$ID\" ] && xdg-open appstream://$ID";
-                    discoverHelper.connectSource(cmd);
+                    rootItem.openApplicationInDiscover(appUrl);
                 }
             }
         }
@@ -2238,16 +2678,15 @@ Kicker.DashboardWindow {
             }
 
             Keys.onPressed: event => {
-                if (event.key === Qt.Key_Down || event.key === Qt.Key_Tab) {
+                if (event.key === Qt.Key_Down) {
+                    event.accepted = true;
+                    root.focusVisibleContent();
+                } else if (event.key === Qt.Key_Tab) {
                     event.accepted = true;
                     if (root.searching) {
-                        mainView.currentItem.tryActivate(0, 0);
-                        mainView.currentItem.forceActiveFocus();
-                    } else if (root.showingRecent) {
-                        recentView.tryActivate();
+                        root.focusVisibleContent();
                     } else {
-                        allAppsGrid.tryActivate(0, 0);
-                        allAppsGrid.forceActiveFocus();
+                        root.focusCurrentCategory();
                     }
                 }
             }
@@ -2327,9 +2766,14 @@ Kicker.DashboardWindow {
             // Dashboard category button
             Rectangle {
                 id: dashboardCatBtn
+                activeFocusOnTab: true
+                Accessible.role: Accessible.Button
+                Accessible.name: dashCatLabel.text
                 width: dashCatLabel.implicitWidth + Kirigami.Units.largeSpacing * 3
                 height: dashCatLabel.implicitHeight + categoryRowContainer.pillPadding
                 radius: height / 2
+                border.width: activeFocus ? 2 : 0
+                border.color: Kirigami.Theme.focusColor
 
                 color: rootItem.showingDashboard
                     ? colorWithAlpha(Kirigami.Theme.highlightColor, 0.85)
@@ -2346,6 +2790,50 @@ Kicker.DashboardWindow {
                 }
 
                 scale: dashCatMouse.pressed ? 0.93 : 1.0
+
+                function activate() {
+                    if (rootItem.showingDashboard) {
+                        root.selectDefaultCategory();
+                    } else {
+                        rootItem.showingDashboard = true;
+                        rootItem.showingAllApps = false;
+                        categoryRow.currentCategory = -1;
+                        dashboardGrid.animateEntrance();
+                    }
+                }
+
+                Keys.onReturnPressed: event => {
+                    event.accepted = true;
+                    activate();
+                }
+                Keys.onEnterPressed: event => {
+                    event.accepted = true;
+                    activate();
+                }
+                Keys.onSpacePressed: event => {
+                    event.accepted = true;
+                    activate();
+                }
+                Keys.onDownPressed: event => {
+                    event.accepted = true;
+                    root.focusVisibleContent();
+                }
+                Keys.onUpPressed: event => {
+                    event.accepted = true;
+                    searchField.forceActiveFocus();
+                }
+                Keys.onPressed: event => {
+                    if (event.key === Qt.Key_Left || event.key === Qt.Key_Right) {
+                        event.accepted = true;
+                        root.navigateCategoryFocus(
+                            dashboardCatBtn, event.key === Qt.Key_Left ? -1 : 1, true);
+                    } else if (event.key === Qt.Key_Tab || event.key === Qt.Key_Backtab) {
+                        event.accepted = true;
+                        var reverse = event.key === Qt.Key_Backtab
+                            || (event.modifiers & Qt.ShiftModifier);
+                        root.navigateCategoryFocus(dashboardCatBtn, reverse ? -1 : 1, false);
+                    }
+                }
 
                 PlasmaComponents.Label {
                     id: dashCatLabel
@@ -2365,14 +2853,7 @@ Kicker.DashboardWindow {
                     cursorShape: Qt.PointingHandCursor
 
                     onClicked: {
-                        if (rootItem.showingDashboard) {
-                            root.selectDefaultCategory();
-                        } else {
-                            rootItem.showingDashboard = true;
-                            rootItem.showingAllApps = false;
-                            categoryRow.currentCategory = -1;
-                            dashboardGrid.animateEntrance();
-                        }
+                        dashboardCatBtn.activate();
                     }
                 }
             }
@@ -2380,9 +2861,14 @@ Kicker.DashboardWindow {
             // All Apps category button (sectioned A-Z list)
             Rectangle {
                 id: allAppsCatBtn
+                activeFocusOnTab: true
+                Accessible.role: Accessible.Button
+                Accessible.name: allAppsCatLabel.text
                 width: allAppsCatLabel.implicitWidth + Kirigami.Units.largeSpacing * 3
                 height: allAppsCatLabel.implicitHeight + categoryRowContainer.pillPadding
                 radius: height / 2
+                border.width: activeFocus ? 2 : 0
+                border.color: Kirigami.Theme.focusColor
 
                 color: rootItem.showingAllApps
                     ? colorWithAlpha(Kirigami.Theme.highlightColor, 0.85)
@@ -2399,6 +2885,51 @@ Kicker.DashboardWindow {
                 }
 
                 scale: allAppsCatMouse.pressed ? 0.93 : 1.0
+
+                function activate() {
+                    if (rootItem.showingAllApps) {
+                        root.selectDefaultCategory();
+                    } else {
+                        rootItem.showingDashboard = false;
+                        rootItem.showingAllApps = true;
+                        categoryRow.currentCategory = -1;
+                        allAppsView.populate();
+                        allAppsView.animateEntrance();
+                    }
+                }
+
+                Keys.onReturnPressed: event => {
+                    event.accepted = true;
+                    activate();
+                }
+                Keys.onEnterPressed: event => {
+                    event.accepted = true;
+                    activate();
+                }
+                Keys.onSpacePressed: event => {
+                    event.accepted = true;
+                    activate();
+                }
+                Keys.onDownPressed: event => {
+                    event.accepted = true;
+                    root.focusVisibleContent();
+                }
+                Keys.onUpPressed: event => {
+                    event.accepted = true;
+                    searchField.forceActiveFocus();
+                }
+                Keys.onPressed: event => {
+                    if (event.key === Qt.Key_Left || event.key === Qt.Key_Right) {
+                        event.accepted = true;
+                        root.navigateCategoryFocus(
+                            allAppsCatBtn, event.key === Qt.Key_Left ? -1 : 1, true);
+                    } else if (event.key === Qt.Key_Tab || event.key === Qt.Key_Backtab) {
+                        event.accepted = true;
+                        var reverse = event.key === Qt.Key_Backtab
+                            || (event.modifiers & Qt.ShiftModifier);
+                        root.navigateCategoryFocus(allAppsCatBtn, reverse ? -1 : 1, false);
+                    }
+                }
 
                 PlasmaComponents.Label {
                     id: allAppsCatLabel
@@ -2418,15 +2949,7 @@ Kicker.DashboardWindow {
                     cursorShape: Qt.PointingHandCursor
 
                     onClicked: {
-                        if (rootItem.showingAllApps) {
-                            root.selectDefaultCategory();
-                        } else {
-                            rootItem.showingDashboard = false;
-                            rootItem.showingAllApps = true;
-                            categoryRow.currentCategory = -1;
-                            allAppsView.populate();
-                            allAppsView.animateEntrance();
-                        }
+                        allAppsCatBtn.activate();
                     }
                 }
             }
@@ -2437,6 +2960,9 @@ Kicker.DashboardWindow {
 
                 delegate: Rectangle {
                     id: catBtn
+                    activeFocusOnTab: visible
+                    Accessible.role: Accessible.Button
+                    Accessible.name: categoryLabel
 
                     readonly property string categoryLabel:
                         model.display === root.allAppsRowLabel ? i18n("Alphabetically")
@@ -2451,6 +2977,8 @@ Kicker.DashboardWindow {
                     width: catLabel.implicitWidth + Kirigami.Units.largeSpacing * 3
                     height: catLabel.implicitHeight + categoryRowContainer.pillPadding
                     radius: height / 2
+                    border.width: activeFocus ? 2 : 0
+                    border.color: Kirigami.Theme.focusColor
 
                     color: categoryRow.currentCategory === index
                         ? colorWithAlpha(Kirigami.Theme.highlightColor, 0.85)
@@ -2467,6 +2995,47 @@ Kicker.DashboardWindow {
                     }
 
                     scale: catMouse.pressed ? 0.93 : 1.0
+
+                    function activate() {
+                        if (categoryRow.currentCategory === index) {
+                            root.selectDefaultCategory();
+                        } else {
+                            root.selectCategory(index);
+                        }
+                    }
+
+                    Keys.onReturnPressed: event => {
+                        event.accepted = true;
+                        activate();
+                    }
+                    Keys.onEnterPressed: event => {
+                        event.accepted = true;
+                        activate();
+                    }
+                    Keys.onSpacePressed: event => {
+                        event.accepted = true;
+                        activate();
+                    }
+                    Keys.onDownPressed: event => {
+                        event.accepted = true;
+                        root.focusVisibleContent();
+                    }
+                    Keys.onUpPressed: event => {
+                        event.accepted = true;
+                        searchField.forceActiveFocus();
+                    }
+                    Keys.onPressed: event => {
+                        if (event.key === Qt.Key_Left || event.key === Qt.Key_Right) {
+                            event.accepted = true;
+                            root.navigateCategoryFocus(
+                                catBtn, event.key === Qt.Key_Left ? -1 : 1, true);
+                        } else if (event.key === Qt.Key_Tab || event.key === Qt.Key_Backtab) {
+                            event.accepted = true;
+                            var reverse = event.key === Qt.Key_Backtab
+                                || (event.modifiers & Qt.ShiftModifier);
+                            root.navigateCategoryFocus(catBtn, reverse ? -1 : 1, false);
+                        }
+                    }
 
                     PlasmaComponents.Label {
                         id: catLabel
@@ -2486,11 +3055,7 @@ Kicker.DashboardWindow {
                         cursorShape: Qt.PointingHandCursor
 
                         onClicked: {
-                            if (categoryRow.currentCategory === index) {
-                                root.selectDefaultCategory();
-                            } else {
-                                root.selectCategory(index);
-                            }
+                            catBtn.activate();
                         }
                     }
                 }
@@ -2552,9 +3117,14 @@ Kicker.DashboardWindow {
                 Rectangle {
                     id: backButton
                     visible: allAppsGrid.parentModel !== null
+                    activeFocusOnTab: visible
+                    Accessible.role: Accessible.Button
+                    Accessible.name: backText.text
                     width: backLabel.implicitWidth + Kirigami.Units.largeSpacing * 3
                     height: visible ? backLabel.implicitHeight + Kirigami.Units.largeSpacing : 0
                     radius: height / 2
+                    border.width: activeFocus ? 2 : 0
+                    border.color: Kirigami.Theme.focusColor
                     color: backMouse.containsMouse
                         ? colorWithAlpha(Kirigami.Theme.highlightColor, 0.3)
                         : colorWithAlpha(Kirigami.Theme.backgroundColor, 0.4)
@@ -2581,11 +3151,37 @@ Kicker.DashboardWindow {
                         }
 
                         PlasmaComponents.Label {
+                            id: backText
                             text: i18n("All Letters")
                             font.pointSize: root.scaledFont(Kirigami.Theme.defaultFont.pointSize - 0.5, root.allAppsFontScale)
                             color: Kirigami.Theme.textColor
                             anchors.verticalCenter: parent.verticalCenter
                         }
+                    }
+
+                    function activate() {
+                        allAppsGrid.model = allAppsGrid.parentModel;
+                        allAppsGrid.parentModel = null;
+                        allAppsGrid.currentIndex = -1;
+                        allAppsGrid.animateEntrance();
+                    }
+
+                    Keys.onReturnPressed: event => {
+                        event.accepted = true;
+                        activate();
+                    }
+                    Keys.onEnterPressed: event => {
+                        event.accepted = true;
+                        activate();
+                    }
+                    Keys.onSpacePressed: event => {
+                        event.accepted = true;
+                        activate();
+                    }
+                    Keys.onDownPressed: event => {
+                        event.accepted = true;
+                        allAppsGrid.tryActivate(0, 0);
+                        allAppsGrid.forceActiveFocus();
                     }
 
                     MouseArea {
@@ -2594,10 +3190,7 @@ Kicker.DashboardWindow {
                         hoverEnabled: true
                         cursorShape: Qt.PointingHandCursor
                         onClicked: {
-                            allAppsGrid.model = allAppsGrid.parentModel;
-                            allAppsGrid.parentModel = null;
-                            allAppsGrid.currentIndex = -1;
-                            allAppsGrid.animateEntrance();
+                            backButton.activate();
                         }
                     }
                 }
@@ -2641,8 +3234,7 @@ Kicker.DashboardWindow {
 
                     onKeyNavDown: {
                         allAppsGrid.focus = false;
-                        systemFavoritesGrid.tryActivate(0, 0);
-                        systemFavoritesGrid.forceActiveFocus();
+                        root.focusSystemActionsOrFallback();
                     }
                     onKeyNavUp: {
                         allAppsGrid.focus = false;
@@ -2652,8 +3244,7 @@ Kicker.DashboardWindow {
                         if (event.key === Qt.Key_Tab) {
                             event.accepted = true;
                             allAppsGrid.focus = false;
-                            systemFavoritesGrid.tryActivate(0, 0);
-                            systemFavoritesGrid.forceActiveFocus();
+                            root.focusSystemActionsOrFallback();
                         } else if (event.key === Qt.Key_Backspace) {
                             event.accepted = true;
                             if (allAppsGrid.parentModel) {
@@ -2810,7 +3401,7 @@ Kicker.DashboardWindow {
                 for (var i = 0; i < sectionRepeater.count; i++) {
                     var section = sectionRepeater.itemAt(i);
                     if (section) {
-                        var grid = section.children[1]; // letterGrid is second child (after header Item)
+                        var grid = section.grid;
                         if (grid && grid.animateEntrance) {
                             grid.animateEntrance();
                         }
@@ -2822,12 +3413,43 @@ Kicker.DashboardWindow {
                 for (var i = 0; i < sectionRepeater.count; i++) {
                     var section = sectionRepeater.itemAt(i);
                     if (section) {
-                        var grid = section.children[1];
+                        var grid = section.grid;
                         if (grid && grid.resetEntrance) {
                             grid.resetEntrance();
                         }
                     }
                 }
+            }
+
+            function focusSection(sectionIndex, row, col) {
+                if (sectionRepeater.count <= 0) {
+                    searchField.forceActiveFocus();
+                    return;
+                }
+                sectionIndex = Math.max(0, Math.min(sectionIndex, sectionRepeater.count - 1));
+                var section = sectionRepeater.itemAt(sectionIndex);
+                if (!section || !section.grid) {
+                    return;
+                }
+                var top = section.y;
+                var maxY = Math.max(0, allAppsFlickable.contentHeight - allAppsFlickable.height);
+                allAppsFlickable.contentY = Math.max(0, Math.min(top, maxY));
+                section.grid.tryActivate(row, col);
+                section.grid.forceActiveFocus();
+            }
+
+            function ensureContentVisible(top, itemHeight) {
+                var viewportTop = allAppsFlickable.contentY;
+                var viewportBottom = viewportTop + allAppsFlickable.height;
+                var targetY = viewportTop;
+                if (top < viewportTop) {
+                    targetY = top;
+                } else if (top + itemHeight > viewportBottom) {
+                    targetY = top + itemHeight - allAppsFlickable.height;
+                }
+                var maxY = Math.max(0, allAppsFlickable.contentHeight
+                                       - allAppsFlickable.height);
+                allAppsFlickable.contentY = Math.max(0, Math.min(targetY, maxY));
             }
 
             // Close launcher when clicking empty space
@@ -2870,6 +3492,8 @@ Kicker.DashboardWindow {
                         id: sectionRepeater
 
                         delegate: Column {
+                            property int sectionIndex: index
+                            property alias grid: letterGrid
                             width: allAppsSectionsColumn.width
                             spacing: Kirigami.Units.smallSpacing
 
@@ -2913,7 +3537,9 @@ Kicker.DashboardWindow {
                                 labelFontScale: root.allAppsFontScale
                                 width: parent.width
                                 // Calculate height based on number of rows needed
-                                height: Math.ceil(modelData.model.count / Math.floor(width / root.cellSize)) * root.cellSize
+                                height: Math.ceil(modelData.model.count
+                                                  / Math.max(1, Math.floor(width / root.cellSize)))
+                                        * root.cellSize
                                 cellWidth: root.cellSize
                                 cellHeight: root.cellSize
                                 iconSize: root.iconSize
@@ -2923,8 +3549,41 @@ Kicker.DashboardWindow {
 animatedEntrance: true
                                 verticalScrollBarPolicy: PlasmaComponents.ScrollBar.AlwaysOff
 
+                                onCurrentIndexChanged: {
+                                    if (currentIndex < 0) {
+                                        return;
+                                    }
+                                    var itemTop = parent.y + y
+                                        + currentRow() * cellHeight;
+                                    allAppsView.ensureContentVisible(itemTop, cellHeight);
+                                }
+
                                 onKeyNavDown: {
-                                    // Move to next section or to system favorites
+                                    if (parent.sectionIndex + 1 < sectionRepeater.count) {
+                                        allAppsView.focusSection(parent.sectionIndex + 1, 0, currentCol());
+                                    } else {
+                                        focus = false;
+                                        root.focusSystemActionsOrFallback();
+                                    }
+                                }
+                                onKeyNavUp: {
+                                    if (parent.sectionIndex > 0) {
+                                        var previous = sectionRepeater.itemAt(parent.sectionIndex - 1);
+                                        var previousRow = previous && previous.grid ? previous.grid.lastRow() : 0;
+                                        allAppsView.focusSection(parent.sectionIndex - 1,
+                                                                 Math.max(0, previousRow),
+                                                                 currentCol());
+                                    } else {
+                                        focus = false;
+                                        searchField.forceActiveFocus();
+                                    }
+                                }
+                                Keys.onPressed: event => {
+                                    if (event.key === Qt.Key_Tab) {
+                                        event.accepted = true;
+                                        focus = false;
+                                        root.focusSystemActionsOrFallback();
+                                    }
                                 }
                             }
                         }
@@ -3269,6 +3928,69 @@ animatedEntrance: true
                     _entranceTriggered = false;
                 }
 
+                function focusIndex(index) {
+                    if (count <= 0) {
+                        searchField.forceActiveFocus();
+                        return;
+                    }
+                    currentIndex = Math.max(0, Math.min(index, count - 1));
+                    dashboardView.goToPage(Math.floor(currentIndex / root.itemsPerPage));
+                    forceActiveFocus();
+                }
+
+                function activateFirstVisible() {
+                    focusIndex(dashboardView.currentPage * root.itemsPerPage);
+                }
+
+                onActiveFocusChanged: {
+                    if (!activeFocus) {
+                        currentIndex = -1;
+                    }
+                }
+
+                Keys.onPressed: event => {
+                    if (event.key === Qt.Key_Left) {
+                        event.accepted = true;
+                        if (currentIndex > 0 && currentIndex % root.columns !== 0) {
+                            focusIndex(currentIndex - 1);
+                        }
+                    } else if (event.key === Qt.Key_Right) {
+                        event.accepted = true;
+                        if (currentIndex >= 0 && currentIndex < count - 1
+                                && currentIndex % root.columns !== root.columns - 1) {
+                            focusIndex(currentIndex + 1);
+                        }
+                    } else if (event.key === Qt.Key_Up) {
+                        event.accepted = true;
+                        if (currentIndex >= root.columns) {
+                            focusIndex(currentIndex - root.columns);
+                        } else {
+                            searchField.forceActiveFocus();
+                        }
+                    } else if (event.key === Qt.Key_Down) {
+                        event.accepted = true;
+                        if (currentIndex >= 0 && currentIndex + root.columns < count) {
+                            focusIndex(currentIndex + root.columns);
+                        } else {
+                            root.focusSystemActionsOrFallback();
+                        }
+                    } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter
+                               || event.key === Qt.Key_Space) {
+                        event.accepted = true;
+                        if (currentItem && currentItem.activate) {
+                            currentItem.activate(true);
+                        }
+                    } else if (event.key === Qt.Key_Menu) {
+                        event.accepted = true;
+                        if (currentItem && currentItem.openContextMenu) {
+                            currentItem.openContextMenu();
+                        }
+                    } else if (event.key === Qt.Key_Tab) {
+                        event.accepted = true;
+                        root.focusSystemActionsOrFallback();
+                    }
+                }
+
                 model: dashboardModel
 
                 // Icons part fluidly to make room for the dragged one
@@ -3289,11 +4011,65 @@ animatedEntrance: true
                     property int itemIndex: index
                     property bool isFolder: model.type === "folder"
                     property bool entranceComplete: root.iconEntranceDuration <= 0
+                    Accessible.role: Accessible.Button
+                    Accessible.name: model.name || ""
+                    Accessible.description: isFolder ? i18n("Folder") : ""
+                    Accessible.onPressAction: activate(true)
+
+                    function openContextMenu(x, y) {
+                        dashContextMenu.isFolderItem = false;
+                        dashContextMenu.appIndex = -1;
+                        if (isFolder) {
+                            dashContextMenu.isFolder = true;
+                            dashContextMenu.isAutoItem = false;
+                            dashContextMenu.folderIdx = itemIndex;
+                            dashContextMenu.desktopFile = "";
+                            dashContextMenu.appName = "";
+                            dashContextMenu.appIcon = "";
+                        } else {
+                            dashContextMenu.isFolder = false;
+                            dashContextMenu.isAutoItem = (model.type === "auto");
+                            dashContextMenu.folderIdx = -1;
+                            dashContextMenu.desktopFile = model.desktopFile;
+                            dashContextMenu.appName = model.name || "";
+                            dashContextMenu.appIcon = model.icon || "";
+                            dashPinMenuItem.isPinned = false;
+                            dashPinMenuItem.taskManagerFound = false;
+                        }
+                        dashContextMenu.visualParent = dashDelegate;
+                        menuOpenTimer.openMenu(dashContextMenu,
+                                               x === undefined ? width / 2 : x,
+                                               y === undefined ? height / 2 : y);
+                    }
+
+                    function activate(showKeyboardFocus) {
+                        if (isFolder) {
+                            var fc = folderPreviewBox.mapToItem(rootItem,
+                                                               folderPreviewBox.width / 2,
+                                                               folderPreviewBox.height / 2);
+                            var folderIndex = itemIndex;
+                            var focusVisible = showKeyboardFocus === true;
+                            folderPopup.originX = fc.x;
+                            folderPopup.originY = fc.y;
+                            folderPopup.originW = folderPreviewBox.plateSize;
+                            folderPopup.originH = folderPreviewBox.plateSize;
+                            rootItem.openFolderIndex = folderIndex;
+                            Qt.callLater(function() {
+                                if (rootItem.openFolderIndex === folderIndex) {
+                                    folderGrid.focusIndex(0, focusVisible);
+                                }
+                            });
+                        } else {
+                            launchAppFromItem(model.desktopFile, dashDelegate);
+                        }
+                    }
 
                     // Staggered entrance animation — dashEntranceAnim drives the
                     // 0.7 → 1 spring; this binding only handles hover afterwards
                     opacity: root.iconEntranceDuration > 0 ? 0 : 1
-                    scale: (entranceComplete && dashMA.containsMouse && !dashMA.dragging) ? 1.06 : 1.0
+                    scale: (entranceComplete
+                            && (dashMA.containsMouse || dashboardGrid.currentIndex === itemIndex)
+                            && !dashMA.dragging) ? 1.06 : 1.0
                     Behavior on scale {
                         NumberAnimation { duration: root.hoverEffectDuration; easing.type: Easing.OutBack; easing.overshoot: 2.0 }
                     }
@@ -3497,6 +4273,23 @@ animatedEntrance: true
                             easing.bezierCurve: [0.12, 0.8, 0.24, 1.04, 1.0, 1.0]
                         }
                         onStarted: dashDelegate.entranceComplete = true
+                    }
+
+                    // GridView's current item is otherwise invisible: the delegates
+                    // only had a hover treatment, so keyboard focus appeared lost.
+                    Rectangle {
+                        anchors.centerIn: parent
+                        width: root.iconSize + Kirigami.Units.largeSpacing * 2
+                        height: width
+                        radius: width / 4
+                        color: colorWithAlpha(Kirigami.Theme.highlightColor, 0.22)
+                        border.width: 2
+                        border.color: Kirigami.Theme.focusColor
+                        opacity: dashboardGrid.activeFocus
+                                 && dashboardGrid.currentIndex === dashDelegate.itemIndex ? 1 : 0
+                        Behavior on opacity {
+                            NumberAnimation { duration: root.hoverEffectDuration }
+                        }
                     }
 
                     // Highlight when another icon is held over this one (folder merge target)
@@ -3706,28 +4499,7 @@ animatedEntrance: true
 
                         onPressed: mouse => {
                             if (mouse.button === Qt.RightButton) {
-                                dashContextMenu.isFolderItem = false;
-                                dashContextMenu.appIndex = -1;
-                                if (dashDelegate.isFolder) {
-                                    dashContextMenu.isFolder = true;
-                                    dashContextMenu.isAutoItem = false;
-                                    dashContextMenu.folderIdx = dashDelegate.itemIndex;
-                                    dashContextMenu.desktopFile = "";
-                                    dashContextMenu.appName = "";
-                                    dashContextMenu.appIcon = "";
-                                } else {
-                                    dashContextMenu.isFolder = false;
-                                    dashContextMenu.isAutoItem = (model.type === "auto");
-                                    dashContextMenu.folderIdx = -1;
-                                    dashContextMenu.desktopFile = model.desktopFile;
-                                    dashContextMenu.appName = model.name || "";
-                                    dashContextMenu.appIcon = model.icon || "";
-                                    // Check pin status
-                                    dashPinMenuItem.isPinned = false;
-                                    rootItem.queryPinState(dashPinChecker, model.desktopFile);
-                                }
-                                dashContextMenu.visualParent = dashDelegate;
-                                menuOpenTimer.openMenu(dashContextMenu, mouse.x, mouse.y);
+                                dashDelegate.openContextMenu(mouse.x, mouse.y);
                             } else {
                                 pressX = mouse.x;
                                 pressY = mouse.y;
@@ -3786,24 +4558,7 @@ animatedEntrance: true
                                     }
                                 }
                             } else if (mouse.button === Qt.LeftButton) {
-                                if (dashDelegate.isFolder) {
-                                    // Hand the popup this tile's preview square —
-                                    // its centre and its size — so the card can
-                                    // start out as exactly this tile and grow out
-                                    // of it. Measured from the preview box rather
-                                    // than the whole cell, which includes the
-                                    // label and would put the origin too low.
-                                    var fc = folderPreviewBox.mapToItem(rootItem,
-                                                                        folderPreviewBox.width / 2,
-                                                                        folderPreviewBox.height / 2);
-                                    folderPopup.originX = fc.x;
-                                    folderPopup.originY = fc.y;
-                                    folderPopup.originW = folderPreviewBox.plateSize;
-                                    folderPopup.originH = folderPreviewBox.plateSize;
-                                    rootItem.openFolderIndex = dashDelegate.itemIndex;
-                                } else {
-                                    launchAppFromItem(model.desktopFile, dashDelegate);
-                                }
+                                dashDelegate.activate(false);
                             }
                         }
 
@@ -4042,6 +4797,7 @@ animatedEntrance: true
                     folderCloseAnim.stop();
                     folderOpenAnim.start();
                 } else {
+                    folderGrid.keyboardFocusVisible = false;
                     // The icons need no teardown of their own: contentProgress
                     // follows openProgress down, so they dissolve back into the
                     // tile as part of the same collapse.
@@ -4125,7 +4881,9 @@ animatedEntrance: true
             Kirigami.ShadowedRectangle {
                 id: folderCard
                 anchors.centerIn: parent
-                width: Math.min(parent.width * 0.5, folderGrid.columns * root.cellSize + Kirigami.Units.largeSpacing * 4)
+                width: Math.min(parent.width - Kirigami.Units.largeSpacing * 4,
+                                folderGrid.columns * root.cellSize
+                                    + Kirigami.Units.largeSpacing * 4)
                 height: folderNameEdit.height + folderGrid.height + Kirigami.Units.largeSpacing * 4
 
                 // Squircle-to-panel morph. The card is scaled down at the start
@@ -4242,7 +5000,13 @@ animatedEntrance: true
 
                     Keys.onEscapePressed: {
                         readOnly = true;
-                        text = dashboardModel.get(rootItem.openFolderIndex).name || "";
+                        // Guard the index like every other dashboardModel.get()
+                        // here: openFolderIndex can be stale after a rebuild, and
+                        // get() past the end returns null → null.name throws.
+                        var idx = rootItem.openFolderIndex;
+                        text = (idx >= 0 && idx < dashboardModel.count)
+                            ? (dashboardModel.get(idx).name || "")
+                            : "";
                     }
 
                     MouseArea {
@@ -4272,14 +5036,35 @@ animatedEntrance: true
                         var item = dashboardModel.get(idx);
                         if (!item || !item.apps) return 3;
                         var cnt = item.apps.count;
-                        if (cnt <= 4) return 2;
-                        if (cnt <= 9) return 3;
-                        return 4;
+                        var desired = cnt <= 4 ? 2 : (cnt <= 9 ? 3 : 4);
+                        var fitting = Math.max(1, Math.floor(
+                            (folderPopup.width - Kirigami.Units.largeSpacing * 4)
+                                / root.cellSize));
+                        return Math.min(desired, fitting);
                     }
 
                     property int dragFromIndex: -1
                     property int dragStartIndex: -1
                     property bool dragActive: false
+                    // The grid always takes focus so a pointer-opened modal can
+                    // immediately receive Escape and navigation keys. Keep the
+                    // blue selection treatment keyboard-only, though: active
+                    // focus by itself must not make a mouse click look like a
+                    // selection of the first app.
+                    property bool keyboardFocusVisible: false
+                    readonly property real requiredHeight: {
+                        var revision = rootItem.folderRevision;
+                        var idx = folderPopup.displayedFolderIndex;
+                        if (idx < 0 || idx >= dashboardModel.count) return root.cellSize;
+                        var item = dashboardModel.get(idx);
+                        if (!item || !item.apps) return root.cellSize;
+                        return Math.max(root.cellSize,
+                                        Math.ceil(item.apps.count / columns) * root.cellSize);
+                    }
+                    readonly property real maximumHeight: Math.max(
+                        root.cellSize,
+                        folderPopup.height * 0.8 - folderNameEdit.height
+                            - Kirigami.Units.largeSpacing * 4)
 
                     // Lives on the grid, not the delegate's MouseArea, and is
                     // called before any write: committing rebuilds this grid's
@@ -4292,18 +5077,84 @@ animatedEntrance: true
                         dragActive = false;
                     }
 
-                    width: columns * root.cellSize
-                    height: {
-                        var revision = rootItem.folderRevision;
-                        var idx = folderPopup.displayedFolderIndex;
-                        if (idx < 0 || idx >= dashboardModel.count) return root.cellSize;
-                        var item = dashboardModel.get(idx);
-                        if (!item || !item.apps) return root.cellSize;
-                        return Math.ceil(item.apps.count / columns) * root.cellSize;
+                    function focusIndex(index, showKeyboardFocus) {
+                        if (count <= 0) {
+                            return;
+                        }
+                        keyboardFocusVisible = showKeyboardFocus !== false;
+                        currentIndex = Math.max(0, Math.min(index, count - 1));
+                        positionViewAtIndex(currentIndex, GridView.Contain);
+                        forceActiveFocus();
                     }
+
+                    width: columns * root.cellSize
+                    height: Math.min(requiredHeight, maximumHeight)
                     cellWidth: root.cellSize
                     cellHeight: root.cellSize
-                    interactive: false
+                    clip: true
+                    interactive: requiredHeight > height
+                    boundsBehavior: Flickable.StopAtBounds
+                    keyNavigationWraps: false
+                    currentIndex: -1
+
+                    ScrollBar.vertical: ScrollBar {
+                        active: folderGrid.interactive
+                        policy: folderGrid.interactive ? ScrollBar.AlwaysOn : ScrollBar.AlwaysOff
+                    }
+
+                    onActiveFocusChanged: {
+                        if (!activeFocus) {
+                            currentIndex = -1;
+                            keyboardFocusVisible = false;
+                        }
+                    }
+
+                    Keys.onPressed: event => {
+                        if (event.key === Qt.Key_Left || event.key === Qt.Key_Right
+                                || event.key === Qt.Key_Up || event.key === Qt.Key_Down
+                                || event.key === Qt.Key_Return || event.key === Qt.Key_Enter
+                                || event.key === Qt.Key_Space || event.key === Qt.Key_Menu) {
+                            keyboardFocusVisible = true;
+                        }
+                        if (event.key === Qt.Key_Left) {
+                            event.accepted = true;
+                            if (currentIndex > 0 && currentIndex % columns !== 0) {
+                                focusIndex(currentIndex - 1);
+                            }
+                        } else if (event.key === Qt.Key_Right) {
+                            event.accepted = true;
+                            if (currentIndex >= 0 && currentIndex < count - 1
+                                    && currentIndex % columns !== columns - 1) {
+                                focusIndex(currentIndex + 1);
+                            }
+                        } else if (event.key === Qt.Key_Up) {
+                            event.accepted = true;
+                            if (currentIndex >= columns) {
+                                focusIndex(currentIndex - columns);
+                            }
+                        } else if (event.key === Qt.Key_Down) {
+                            event.accepted = true;
+                            if (currentIndex >= 0 && currentIndex + columns < count) {
+                                focusIndex(currentIndex + columns);
+                            }
+                        } else if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter
+                                   || event.key === Qt.Key_Space) {
+                            event.accepted = true;
+                            if (currentItem && currentItem.activate) {
+                                currentItem.activate();
+                            }
+                        } else if (event.key === Qt.Key_Menu) {
+                            event.accepted = true;
+                            if (currentItem && currentItem.openContextMenu) {
+                                currentItem.openContextMenu();
+                            }
+                        } else if (event.key === Qt.Key_Escape) {
+                            event.accepted = true;
+                            var folderIndex = folderPopup.displayedFolderIndex;
+                            rootItem.openFolderIndex = -1;
+                            dashboardGrid.focusIndex(folderIndex);
+                        }
+                    }
 
                     // The contents fade in as one block, not item by item. A
                     // per-icon stagger belongs to lists that are being read
@@ -4345,6 +5196,31 @@ animatedEntrance: true
                         height: root.cellSize
 
                         property int itemIndex: index
+                        Accessible.role: Accessible.Button
+                        Accessible.name: model.name || ""
+                        Accessible.onPressAction: activate()
+
+                        function openContextMenu(x, y) {
+                            dashContextMenu.isFolder = false;
+                            dashContextMenu.isAutoItem = false;
+                            dashContextMenu.isFolderItem = true;
+                            dashContextMenu.folderIdx = rootItem.openFolderIndex;
+                            dashContextMenu.appIndex = itemIndex;
+                            dashContextMenu.desktopFile = model.desktopFile;
+                            dashContextMenu.appName = model.name || "";
+                            dashContextMenu.appIcon = model.icon || "";
+                            dashPinMenuItem.isPinned = false;
+                            dashPinMenuItem.taskManagerFound = false;
+                            dashContextMenu.visualParent = folderDelegate;
+                            menuOpenTimer.openMenu(dashContextMenu,
+                                                   x === undefined ? width / 2 : x,
+                                                   y === undefined ? height / 2 : y);
+                        }
+
+                        function activate() {
+                            rootItem.openFolderIndex = -1;
+                            launchAppFromItem(model.desktopFile, folderDelegate);
+                        }
 
                         // Hide whichever delegate holds the dragged item (index-
                         // based, so live moves inside the folder stay correct); the
@@ -4383,45 +5259,101 @@ animatedEntrance: true
                             }
                         }
 
-                        scale: folderItemMA.containsMouse && !folderItemMA.dragging ? 1.06 : 1.0
+                        scale: (folderItemMA.containsMouse
+                                || (folderGrid.activeFocus
+                                    && folderGrid.keyboardFocusVisible
+                                    && folderGrid.currentIndex === folderDelegate.itemIndex))
+                               && !folderItemMA.dragging ? 1.06 : 1.0
                         Behavior on scale {
                             NumberAnimation { duration: root.hoverEffectDuration; easing.type: Easing.OutBack; easing.overshoot: 2.0 }
+                        }
+
+                        Rectangle {
+                            anchors.centerIn: parent
+                            width: root.iconSize + Kirigami.Units.largeSpacing * 2
+                            height: width
+                            radius: width / 4
+                            color: colorWithAlpha(Kirigami.Theme.highlightColor, 0.22)
+                            border.width: 2
+                            border.color: Kirigami.Theme.focusColor
+                            opacity: folderGrid.activeFocus
+                                     && folderGrid.keyboardFocusVisible
+                                     && folderGrid.currentIndex === folderDelegate.itemIndex ? 1 : 0
+                            z: -1
                         }
 
                         MouseArea {
                             id: folderItemMA
                             anchors.fill: parent
                             hoverEnabled: true
-                            preventStealing: true
+                            // A mouse drag reorders immediately, but a touch
+                            // swipe must remain available to the surrounding
+                            // GridView. Touch takes ownership only after a
+                            // deliberate press-and-hold starts reordering.
+                            preventStealing: mouseDragArmed || dragging
                             cursorShape: Qt.PointingHandCursor
                             acceptedButtons: Qt.LeftButton | Qt.RightButton
 
                             property int pressX: -1
                             property int pressY: -1
                             property bool dragging: false
+                            property bool mouseDragArmed: false
+
+                            function beginDrag(x, y) {
+                                if (dragging || pressX === -1) {
+                                    return;
+                                }
+                                dragging = true;
+                                folderGrid.dragFromIndex = folderDelegate.itemIndex;
+                                folderGrid.dragStartIndex = folderDelegate.itemIndex;
+                                folderGrid.dragActive = true;
+                                dragGhost.iconSource = model.icon;
+                                dragGhost.labelText = model.name;
+                                var globalPos = mapToItem(rootItem, x, y);
+                                dragGhost.x = globalPos.x - dragGhost.width / 2;
+                                dragGhost.y = globalPos.y - dragGhost.height / 2;
+                                dragGhost.visible = true;
+                            }
+
+                            function cancelPress() {
+                                var persistReorder = dragging
+                                    && folderGrid.dragFromIndex !== folderGrid.dragStartIndex;
+                                pressX = -1;
+                                pressY = -1;
+                                mouseDragArmed = false;
+                                if (dragging) {
+                                    dragging = false;
+                                    dragGhost.visible = false;
+                                    folderGrid.endDrag();
+                                    // A cancellation after a live move should not
+                                    // leave the displayed order disagreeing with
+                                    // the persisted one.
+                                    if (persistReorder) {
+                                        rootItem.syncModelToConfig();
+                                    }
+                                }
+                            }
 
                             onPressed: mouse => {
+                                folderGrid.keyboardFocusVisible = false;
+                                mouseDragArmed = mouse.source === Qt.MouseEventNotSynthesized;
                                 if (mouse.button === Qt.RightButton) {
-                                    // Apps inside a folder get the same menu as a
-                                    // dashboard tile — only the first entry differs,
-                                    // removing from the folder rather than the board.
-                                    dashContextMenu.isFolder = false;
-                                    dashContextMenu.isAutoItem = false;
-                                    dashContextMenu.isFolderItem = true;
-                                    dashContextMenu.folderIdx = rootItem.openFolderIndex;
-                                    dashContextMenu.appIndex = folderDelegate.itemIndex;
-                                    dashContextMenu.desktopFile = model.desktopFile;
-                                    dashContextMenu.appName = model.name || "";
-                                    dashContextMenu.appIcon = model.icon || "";
-                                    dashPinMenuItem.isPinned = false;
-                                    rootItem.queryPinState(dashPinChecker, model.desktopFile);
-                                    dashContextMenu.visualParent = folderDelegate;
-                                    menuOpenTimer.openMenu(dashContextMenu, mouse.x, mouse.y);
+                                    pressX = -1;
+                                    pressY = -1;
+                                    folderDelegate.openContextMenu(mouse.x, mouse.y);
                                 } else {
                                     pressX = mouse.x;
                                     pressY = mouse.y;
                                 }
                             }
+
+                            onPressAndHold: mouse => {
+                                if (mouse.button === Qt.LeftButton && !mouseDragArmed) {
+                                    beginDrag(mouse.x, mouse.y);
+                                }
+                            }
+
+                            onCanceled: cancelPress()
 
                             onReleased: mouse => {
                                 // Everything this handler needs is read and reset up
@@ -4432,10 +5364,10 @@ animatedEntrance: true
                                 var wasDragging = dragging;
                                 pressX = -1;
                                 pressY = -1;
+                                mouseDragArmed = false;
                                 if (!wasDragging) {
                                     if (mouse.button === Qt.LeftButton) {
-                                        rootItem.openFolderIndex = -1;
-                                        launchAppFromItem(model.desktopFile, folderDelegate);
+                                        folderDelegate.activate();
                                     }
                                     return;
                                 }
@@ -4470,14 +5402,8 @@ animatedEntrance: true
                                 if (pressX !== -1 && !dragging) {
                                     var dx = mouse.x - pressX;
                                     var dy = mouse.y - pressY;
-                                    if (dx*dx + dy*dy > 400) {
-                                        dragging = true;
-                                        folderGrid.dragFromIndex = index;
-                                        folderGrid.dragStartIndex = index;
-                                        folderGrid.dragActive = true;
-                                        dragGhost.iconSource = model.icon;
-                                        dragGhost.labelText = model.name;
-                                        dragGhost.visible = true;
+                                    if (mouseDragArmed && dx*dx + dy*dy > 400) {
+                                        beginDrag(mouse.x, mouse.y);
                                     }
                                 }
                                 if (dragging) {
@@ -4553,8 +5479,7 @@ animatedEntrance: true
 
                 onKeyNavDown: {
                     runnerGrid.focus = false;
-                    systemFavoritesGrid.tryActivate(0, 0);
-                    systemFavoritesGrid.forceActiveFocus();
+                    root.focusSystemActionsOrFallback();
                 }
                 onKeyNavUp: {
                     runnerGrid.focus = false;
@@ -4564,8 +5489,7 @@ animatedEntrance: true
                     if (event.key === Qt.Key_Tab) {
                         event.accepted = true;
                         runnerGrid.focus = false;
-                        systemFavoritesGrid.tryActivate(0, 0);
-                        systemFavoritesGrid.forceActiveFocus();
+                        root.focusSystemActionsOrFallback();
                     }
                 }
             }
@@ -4629,6 +5553,31 @@ animatedEntrance: true
                         delegate: Item {
                             width: rootItem.dockCellSize
                             height: rootItem.dockCellSize
+                            activeFocusOnTab: true
+                            Accessible.role: Accessible.Button
+                            Accessible.name: model.AppName || model.display || ""
+
+                            function openContextMenu(x, y) {
+                                rootItem.openDockContextMenu(runningTasksModel, index, runningTaskDelegate,
+                                                            x === undefined ? width / 2 : x,
+                                                            y === undefined ? height / 2 : y, {
+                                    isWindow: model.IsWindow === true,
+                                    isLauncher: model.IsLauncher === true,
+                                    isMinimized: model.IsMinimized === true,
+                                    isMaximized: model.IsMaximized === true,
+                                    isKeepAbove: model.IsKeepAbove === true,
+                                    isKeepBelow: model.IsKeepBelow === true,
+                                    isFullScreen: model.IsFullScreen === true
+                                });
+                            }
+
+                            function activate() {
+                                var taskIndex = runningTasksModel.index(index, 0);
+                                runningTasksModel.requestActivate(taskIndex);
+                                closeWithAnimation();
+                            }
+
+                            id: runningTaskDelegate
 
                             Kirigami.Icon {
                                 anchors.centerIn: parent
@@ -4648,7 +5597,20 @@ animatedEntrance: true
                                 }
                             }
 
-                            scale: runMA.pressed ? 0.88 : runMA.containsMouse ? 1.08 : 1.0
+                            Rectangle {
+                                anchors.centerIn: parent
+                                width: rootItem.dockIconSize + Kirigami.Units.smallSpacing * 2
+                                height: width
+                                radius: width / 4
+                                color: colorWithAlpha(Kirigami.Theme.highlightColor, 0.22)
+                                border.width: 2
+                                border.color: Kirigami.Theme.focusColor
+                                visible: runningTaskDelegate.activeFocus
+                                z: -1
+                            }
+
+                            scale: runMA.pressed ? 0.88
+                                   : (runMA.containsMouse || activeFocus) ? 1.08 : 1.0
                             Behavior on scale {
                                 NumberAnimation { duration: root.hoverEffectDuration; easing.type: Easing.OutBack; easing.overshoot: 2.0 }
                             }
@@ -4656,6 +5618,32 @@ animatedEntrance: true
                             PlasmaComponents.ToolTip.text: model.AppName || model.display || ""
                             PlasmaComponents.ToolTip.visible: runMA.containsMouse
                             PlasmaComponents.ToolTip.delay: 500
+
+                            Keys.onPressed: event => {
+                                if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter
+                                        || event.key === Qt.Key_Space) {
+                                    event.accepted = true;
+                                    activate();
+                                } else if (event.key === Qt.Key_Menu) {
+                                    event.accepted = true;
+                                    openContextMenu();
+                                } else if (event.key === Qt.Key_Left && index > 0) {
+                                    event.accepted = true;
+                                    var previous = runningRepeater.itemAt(index - 1);
+                                    if (previous) previous.forceActiveFocus();
+                                } else if (event.key === Qt.Key_Right
+                                           && index + 1 < runningRepeater.count) {
+                                    event.accepted = true;
+                                    var next = runningRepeater.itemAt(index + 1);
+                                    if (next) next.forceActiveFocus();
+                                } else if (event.key === Qt.Key_Up) {
+                                    event.accepted = true;
+                                    searchField.forceActiveFocus();
+                                } else if (event.key === Qt.Key_Tab) {
+                                    event.accepted = true;
+                                    searchField.forceActiveFocus();
+                                }
+                            }
 
                             MouseArea {
                                 id: runMA
@@ -4665,22 +5653,12 @@ animatedEntrance: true
                                 acceptedButtons: Qt.LeftButton | Qt.MiddleButton | Qt.RightButton
                                 onClicked: mouse => {
                                     if (mouse.button === Qt.RightButton) {
-                                        rootItem.openDockContextMenu(runningTasksModel, index, parent, mouse.x, mouse.y, {
-                                            isWindow: model.IsWindow === true,
-                                            isLauncher: model.IsLauncher === true,
-                                            isMinimized: model.IsMinimized === true,
-                                            isMaximized: model.IsMaximized === true,
-                                            isKeepAbove: model.IsKeepAbove === true,
-                                            isKeepBelow: model.IsKeepBelow === true,
-                                            isFullScreen: model.IsFullScreen === true
-                                        });
+                                        runningTaskDelegate.openContextMenu(mouse.x, mouse.y);
                                     } else if (mouse.button === Qt.MiddleButton) {
                                         var idx = runningTasksModel.index(index, 0);
                                         runningTasksModel.requestNewInstance(idx);
                                     } else {
-                                        var idx = runningTasksModel.index(index, 0);
-                                        runningTasksModel.requestActivate(idx);
-                                        closeWithAnimation();
+                                        runningTaskDelegate.activate();
                                     }
                                 }
                             }
@@ -4711,11 +5689,30 @@ animatedEntrance: true
             dragEnabled: false
             dropEnabled: false
 
+            onKeyNavUp: {
+                focus = false;
+                root.focusVisibleContent();
+            }
+            onKeyNavDown: {
+                focus = false;
+                if (runningDockContainer.visible && runningRepeater.count > 0) {
+                    var firstTask = runningRepeater.itemAt(0);
+                    if (firstTask) firstTask.forceActiveFocus();
+                } else {
+                    searchField.forceActiveFocus();
+                }
+            }
+
             Keys.onPressed: event => {
                 if (event.key === Qt.Key_Tab) {
                     event.accepted = true;
                     systemFavoritesGrid.focus = false;
-                    searchField.focus = true;
+                    if (runningDockContainer.visible && runningRepeater.count > 0) {
+                        var firstTask = runningRepeater.itemAt(0);
+                        if (firstTask) firstTask.forceActiveFocus();
+                    } else {
+                        searchField.forceActiveFocus();
+                    }
                 }
             }
         }
