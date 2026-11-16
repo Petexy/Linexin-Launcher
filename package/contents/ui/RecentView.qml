@@ -30,12 +30,28 @@ Item {
         NumberAnimation { duration: root.animDuration * 0.8; easing.type: Easing.OutCubic }
     }
 
+    // RootModel::refresh() rebuilds its rows and hands the old row models to
+    // deleteLater(). A pointer cached here therefore dies under the view on
+    // every refresh (plasmoid load, drag end, session-menu changes, recent
+    // category toggles), leaving itemCount at 0 — the empty Recent page. Count
+    // the refreshes and re-read the row, so the property never outlives the
+    // model it points at.
+    property int modelGeneration: 0
+
     // Active recent model. currentCategory is untouched while searching, so
     // this stays alive during the search exit animation.
-    readonly property var recentModel: (categoryRow.currentCategory >= 0
-                                        && categoryRow.currentCategory < root.recentRowCount)
-                                       ? rootModel.modelForRow(categoryRow.currentCategory)
-                                       : null
+    readonly property var recentModel: {
+        modelGeneration; // dependency: re-read after rootModel.refresh()
+        var row = categoryRow.currentCategory;
+        return (row >= 0 && row < root.recentRowCount) ? rootModel.modelForRow(row) : null;
+    }
+
+    Connections {
+        target: rootModel
+        function onRefreshed() {
+            recentView.modelGeneration++;
+        }
+    }
 
     // RootModel orders the recent groups apps-first, so the files tab is
     // row 1 when recent apps are enabled and row 0 otherwise. Checking row
@@ -181,6 +197,14 @@ Item {
             clearDisarmTimer.stop();
         } else {
             resetScrollPosition();
+            // An empty list right after login can mean the usage database was
+            // not ready when this row model was built — its KAMD query was
+            // fixed to whatever the current activity was back then. Re-query
+            // on open while it is still empty; refresh() rebuilds only this
+            // model, not the whole RootModel.
+            if (itemCount === 0 && recentModel && "refresh" in recentModel) {
+                recentModel.refresh();
+            }
         }
     }
 
